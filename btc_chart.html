@@ -13,10 +13,110 @@
             color: #e0e0e0;
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             display: flex;
+            flex-direction: row;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ===== SIDEBAR (outside capture) ===== */
+        .sidebar {
+            width: 52px;
+            min-width: 52px;
+            background: #0d0d0d;
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 0;
+            gap: 4px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .sidebar .tool-btn {
+            width: 38px;
+            height: 38px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: #999;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.12s;
+            position: relative;
+        }
+        .sidebar .tool-btn:hover { background: #1a1a1a; color: #ddd; border-color: #444; }
+        .sidebar .tool-btn.active { background: #1a1a2e; color: #7c9dff; border-color: #5577cc; }
+        .sidebar .tool-btn svg { width: 20px; height: 20px; fill: currentColor; stroke: currentColor; }
+        .sidebar .divider { width: 30px; height: 1px; background: #333; margin: 6px 0; }
+
+        /* Color/size pickers in sidebar */
+        .sidebar .color-pick {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid #555;
+            cursor: pointer;
+            padding: 0;
+            background: #ff4444;
+            transition: border-color 0.12s;
+        }
+        .sidebar .color-pick:hover { border-color: #aaa; }
+        .sidebar .color-pick.active { border-color: #7c9dff; }
+        /* Hidden native color input */
+        .sidebar input[type="color"] {
+            position: absolute;
+            width: 0; height: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .sidebar .size-label {
+            font-size: 9px;
+            color: #777;
+            margin-top: 2px;
+        }
+        .sidebar select {
+            width: 38px;
+            background: #111;
+            color: #ccc;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-size: 11px;
+            text-align: center;
+            cursor: pointer;
+            padding: 2px 0;
+        }
+        .sidebar select:focus { outline: none; border-color: #7c9dff; }
+
+        /* Tooltip for buttons */
+        .sidebar .tool-btn[data-tip]:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            left: 48px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #222;
+            color: #ddd;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            border: 1px solid #444;
+            z-index: 200;
+            pointer-events: none;
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .main-content {
+            flex: 1;
+            display: flex;
             flex-direction: column;
             align-items: center;
             padding: 20px;
             gap: 12px;
+            overflow: auto;
         }
         .export-btn {
             background: #1a1a1a;
@@ -29,473 +129,1020 @@
             border-radius: 4px;
             transition: all 0.15s;
         }
-        .export-btn:hover {
-            background: #2a2a2a;
-            color: #fff;
-            border-color: #666;
-        }
+        .export-btn:hover { background: #2a2a2a; color: #fff; border-color: #666; }
         .wrapper {
             width: 1350px;
             height: 850px;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
         .chart-panel {
             position: relative;
             border-bottom: 1px solid #333;
         }
         .chart-panel:last-child { border-bottom: none; }
-        .chart-panel canvas {
+        .chart-panel canvas.chart-canvas {
             width: 100% !important;
             height: 100% !important;
         }
+
+        /* Drawing overlay */
+        #drawingOverlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+            pointer-events: none;
+            cursor: default;
+        }
+        #drawingOverlay.drawing-active {
+            pointer-events: auto;
+        }
+        #drawingOverlay.tool-cursor { cursor: crosshair; }
+        #drawingOverlay.tool-text { cursor: text; }
+        #drawingOverlay.tool-move { cursor: move; }
     </style>
 </head>
 <body>
 
-<button class="export-btn" onclick="exportImage()">Export Image</button>
-<div class="wrapper" id="chartWrapper">
-    <div class="chart-panel" style="height: 510px;">
-        <canvas id="btcChart"></canvas>
+<!-- ===== SIDEBAR ===== -->
+<div class="sidebar" id="sidebar">
+    <!-- Cursor / Select -->
+    <button class="tool-btn active" data-tool="select" data-tip="Selecionar" onclick="setTool('select')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 4l7 18 3-7 7-3z"/></svg>
+    </button>
+
+    <div class="divider"></div>
+
+    <!-- Freehand -->
+    <button class="tool-btn" data-tool="pencil" data-tip="Desenho livre" onclick="setTool('pencil')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    </button>
+
+    <!-- Line -->
+    <button class="tool-btn" data-tool="line" data-tip="Linha reta" onclick="setTool('line')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
+    </button>
+
+    <!-- Horizontal line -->
+    <button class="tool-btn" data-tool="hline" data-tip="Linha horizontal" onclick="setTool('hline')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/></svg>
+    </button>
+
+    <!-- Rectangle -->
+    <button class="tool-btn" data-tool="rect" data-tip="Retângulo" onclick="setTool('rect')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
+    </button>
+
+    <!-- Circle -->
+    <button class="tool-btn" data-tool="circle" data-tip="Círculo" onclick="setTool('circle')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
+    </button>
+
+    <!-- Arrow -->
+    <button class="tool-btn" data-tool="arrow" data-tip="Seta" onclick="setTool('arrow')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="10,5 19,5 19,14"/></svg>
+    </button>
+
+    <!-- Text -->
+    <button class="tool-btn" data-tool="text" data-tip="Texto" onclick="setTool('text')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="4,7 4,4 20,4 20,7"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
+    </button>
+
+    <div class="divider"></div>
+
+    <!-- Line style -->
+    <button class="tool-btn" data-tip="Tracejado" onclick="toggleDash()" id="dashBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-dasharray="4 3"><line x1="3" y1="12" x2="21" y2="12"/></svg>
+    </button>
+
+    <div class="divider"></div>
+
+    <!-- Color -->
+    <span class="size-label">Cor</span>
+    <div style="position:relative;">
+        <div class="color-pick" id="colorPick" onclick="document.getElementById('colorInput').click()"></div>
+        <input type="color" id="colorInput" value="#ff4444" onchange="setColor(this.value)">
     </div>
-    <div class="chart-panel" style="height: 340px;">
-        <canvas id="exportDataChart"></canvas>
+
+    <!-- Quick colors -->
+    <div class="color-pick" style="background:#ff4444;width:22px;height:22px;border-width:1px;" onclick="setColor('#ff4444')"></div>
+    <div class="color-pick" style="background:#f57c00;width:22px;height:22px;border-width:1px;" onclick="setColor('#f57c00')"></div>
+    <div class="color-pick" style="background:#ffeb3b;width:22px;height:22px;border-width:1px;" onclick="setColor('#ffeb3b')"></div>
+    <div class="color-pick" style="background:#00c850;width:22px;height:22px;border-width:1px;" onclick="setColor('#00c850')"></div>
+    <div class="color-pick" style="background:#2196f3;width:22px;height:22px;border-width:1px;" onclick="setColor('#2196f3')"></div>
+    <div class="color-pick" style="background:#ffffff;width:22px;height:22px;border-width:1px;" onclick="setColor('#ffffff')"></div>
+
+    <div class="divider"></div>
+
+    <!-- Stroke width -->
+    <span class="size-label">Esp.</span>
+    <select id="strokeWidth" onchange="drawState.strokeWidth = +this.value">
+        <option value="1">1</option>
+        <option value="2" selected>2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="6">6</option>
+    </select>
+
+    <!-- Font size (for text) -->
+    <span class="size-label">Font</span>
+    <select id="fontSize" onchange="drawState.fontSize = +this.value">
+        <option value="12">12</option>
+        <option value="14" selected>14</option>
+        <option value="16">16</option>
+        <option value="20">20</option>
+        <option value="24">24</option>
+    </select>
+
+    <div class="divider"></div>
+
+    <!-- Undo -->
+    <button class="tool-btn" data-tip="Desfazer (Ctrl+Z)" onclick="undoDraw()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 105.64-8.36L1 10"/></svg>
+    </button>
+
+    <!-- Clear all -->
+    <button class="tool-btn" data-tip="Limpar tudo" onclick="clearDraw()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V3h6v3"/></svg>
+    </button>
+</div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<div class="main-content">
+    <button class="export-btn" onclick="exportImage()">Export Image</button>
+    <div class="wrapper" id="chartWrapper">
+        <div class="chart-panel" style="height: 400px;">
+            <canvas class="chart-canvas" id="btcChart"></canvas>
+        </div>
+        <div class="chart-panel" style="height: 225px;">
+            <canvas class="chart-canvas" id="rsiChart"></canvas>
+        </div>
+        <div class="chart-panel" style="height: 225px;">
+            <canvas class="chart-canvas" id="lwbcChart"></canvas>
+        </div>
+
+        <!-- Drawing overlay on top of all charts -->
+        <canvas id="drawingOverlay"></canvas>
     </div>
 </div>
 
 <script>
-const csvData = `time,low,zscore
-1516748400,9720,
-1517353200,5970,
-1517958000,7235,
-1518562800,8505,-0.8688968358243119
-1519254000,9270,-0.4998036664066183
-1519858800,9385,-0.1306212440324479
-1520463600,8185,-1.209060334352866
-1521064800,7700,-1.9728365018063254
-1521669600,7745,-1.8868756138659013
-1522274400,6725,-1.7803380920094145
-1522879200,6485,-1.4757390741207905
-1523484000,6660,-0.8244254492283742
-1524088800,8100,0.06972521492968807
-1524693600,8670,0.8592643562700181
-1525298400,8955,0.9666953779012037
-1525903200,8115,0.3031414780417919
-1526508000,7445,-0.37199814685238136
-1527112800,7050,-1.3826933281442135
-1527804000,7300,-1.2147999111038315
-1528408800,6100,-1.2428948823510773
-1529013600,6340,-1.1544163954185191
-1529618400,5960,-1.3569925481202587
-1530223200,5755,-1.161282594651662
-1531087200,6060,-1.0375702077214704
-1531692000,6320,0.0581967171044515
-1532296800,7335,1.8666553353423587
-1532901600,7270,1.1201049115005142
-1533506400,6105,-0.16595120984141692
-1534111200,5850,-1.065276578404164
-1534716000,6205,-0.9839536958947704
-1535320800,6650,-0.24482507186293886
-1535925600,6175,-0.13728291047038169
-1536616800,6120,-0.6698728902243938
-1537221600,6035,-1.396926358997992
-1537826400,6315,-0.6671900667396129
-1538431200,6345,-0.3326134637291371
-1539036000,6030,-0.8611893392993464
-1539640800,6330,-1.6977679113295614
-1540245600,6185,-1.9299251539689524
-1540850400,6170,-1.5548759760558704
-1541458800,6240,-0.7523129752261031
-1542063600,4560,-3.3632163508514834
-1542668400,3515,-2.8432560062408005
-1543359600,3690,-1.8390251269409774
-1543964400,3135,-1.3847162176129937
-1544569200,3120,-1.0784628924696569
-1545174000,3550,-0.7080520315114374
-1545865200,3525,-0.6452636351824921
-1546383600,3685,-0.6456794005803014
-1546988400,3400,-1.2296337724589164
-1547593200,3390,-2.2882902077157934
-1548284400,3300,-2.618848810168397
-1548889200,3310,-2.31563944544454
-1549494000,3325,-1.0771792998805825
-1550098800,3530,0.31541142187699533
-1550790000,3620,1.0491267024990494
-1551394800,3655,0.8281192531735612
-1551999600,3775,0.6119952207373754
-1552600800,3845,0.8717912621040118
-1553205600,3845,1.0670684837152522
-1553810400,4000,3.2007728156571136
-1554415200,4890,2.478651427747661
-1555020000,4900,1.6440011304116242
-1555624800,5255,1.355645987730164
-1556229600,4930,0.9306258114449147
-1556834400,5355,1.2055848829649196
-1557439200,6110,2.6396656305137784
-1558044000,6320,2.092549045771369
-1558648800,7815,1.6461717609099689
-1559512800,7435,1.0028585918218766
-1560117600,7515,0.7816285460083903
-1560722400,8985,1.4416676430298676
-1561327200,10570,2.8052700493361598
-1561932000,9805,1.909644008632362
-1562623200,9915,1.3335479562027426
-1563228000,9095,0.4848750574061878
-1563832800,9195,-0.08240161773280119
-1564437600,9470,-0.013011228033373094
-1565042400,11325,1.3431424506306608
-1565647200,9500,0.678887029063581
-1566252000,9765,-0.16097991091609815
-1566856800,9400,-1.0600794468581924
-1567548000,9945,-0.4172297163078424
-1568152800,9900,-0.36563877354697055
-1568757600,7995,-0.8812191545703035
-1569362400,7710,-2.4805578410594062
-1569967200,7745,-1.9014612677525384
-1570572000,8085,-1.1409054816575799
-1571176800,7805,-0.91211006840627
-1571781600,7280,-0.542935142173539
-1572386400,8360,0.5009496161597807
-1572994800,8555,0.7906817230624906
-1573599600,8005,-0.31574776989623393
-1574204400,6510,-1.8751316860392218
-1574809200,6845,-1.7194722487223333
-1575500400,7130,-1.2143315817791458
-1576105200,6420,-1.0101264085604202
-1576710000,7055,-0.8054402349008206
-1577314800,7080,-0.7324076247362348
-1577833200,6860,-0.532990842724966
-1578438000,7700,1.4673532552856343
-1579042800,8515,1.8150592943612807
-1579734000,8235,1.3238166379792564
-1580338800,9130,1.2626536835320168
-1580943600,9510,1.3954583188369885
-1581548400,9245,1.3229426754992273
-1582239600,8575,0.6175099198238702
-1582844400,8480,-0.3503905063664545
-1583449200,5595,-1.6001077685618244
-1584050400,4210,-2.033396985996775
-1584655200,5665,-1.2034086287481403
-1585260000,5835,-0.7424261655403298
-1585864800,6625,-0.29991337958357994
-1586469600,6465,-0.24239925240018564
-1587074400,6765,-0.1804907986761744
-1587679200,7465,1.1505753675811363
-1588284000,8600,1.786009905420114
-1588888800,8220,1.4609858264350426
-1589493600,8815,1.1275169330365373
-1590098400,8630,0.7314015211608338
-1590962400,9335,0.8435039846500281
-1591567200,9090,1.1864362706661005
-1592172000,8930,1.5025291420862275
-1592776800,9070,1.2668077680932661
-1593381600,8950,-0.10077660003585372
-1594072800,9145,-0.13202248720093834
-1594677600,9040,-0.3479798404886255
-1595282400,9175,1.377527487605963
-1595887200,10635,3.1199416479798345
-1596492000,11125,2.0270213883290364
-1597096800,11190,1.337236103775492
-1597701600,11580,0.932742491250975
-1598306400,11115,0.611383648809227
-1598911200,9890,0.12315223611809759
-1599602400,9850,-1.0753987391801771
-1600207200,10265,-0.8018858451959475
-1600812000,10210,-0.39335400763522493
-1601416800,10410,-0.34341273506694514
-1602021600,10580,0.3338618866457851
-1602626400,11225,2.09380524974814
-1603231200,11960,2.370806994936289
-1603836000,13035,1.84439913759437
-1604444400,13635,1.7292906725776573
-1605049200,15350,1.6427891926098832
-1605654000,17235,1.6792112363481433
-1606258800,16520,1.4852999162057194
-1606950000,17705,1.2147782908958664
-1607554800,17575,1.0472174206562272
-1608159600,21320,1.9211985287642355
-1608764400,22960,2.545022696350317
-1609714800,28440,2.500935531142847
-1610319600,31105,1.739275441199656
-1610924400,28900,1.0414753284530052
-1611615600,29075,0.6248309929764608
-1612220400,33605,0.9970908546130541
-1612825200,43950,2.473984749748265
-1613516400,44900,2.4066865637980177
-1614121200,44555,1.3535683960315452
-1614726000,46295,0.9592130268996371
-1615330800,53430,1.2373151052717881
-1615932000,52915,1.5232767783676984
-1616536800,50595,1.5508338497965861
-1617141600,57155,1.7347750726872446
-1617746400,55675,1.5832688697546438
-1618351200,53430,1.589583871230054
-1618956000,47395,0.12653183115202984
-1619560800,52475,-0.4769396077544179
-1620165600,52830,-0.01666834555258074
-1620770400,42050,-1.5975087798760774
-1621375200,30205,-2.153253194317455
-1621980000,34250,-1.7199473635732003
-1622671200,30915,-1.264529672335308
-1623276000,35815,-0.7878212210234494
-1623880800,28800,-0.8623056995555973
-1624485600,31480,-1.1850868456016335
-1625090400,32040,-1.9657022388978984
-1625781600,30970,-2.3380592647081206
-1626386400,29215,-2.1594525153885975
-1626991200,31980,-0.021194810315770456
-1627596000,37300,1.6057408887243587
-1628200800,39910,1.8259135170082994
-1628805600,43830,1.3225462329982691
-1629410400,46310,1.132501561142832
-1630015200,46350,0.959707573033593
-1630620000,43705,0.810343818003046
-1631484000,43310,0.7091340101209017
-1632088800,40085,-0.22611130530697002
-1632693600,40785,-0.8919276120753205
-1633298400,47180,2.1325735177627885
-1633903200,54370,2.6327747511684003
-1634508000,60100,1.9374225610917466
-1635112800,57855,1.1848526205074454
-1635717600,59700,0.827116379687301
-1636326000,62385,0.9422640326190185
-1636930800,55600,0.6510896486911601
-1637535600,53600,-0.541393587089989
-1638226800,47215,-1.3149264510711414
-1638831600,45700,-1.5735692780288928
-1639436400,45415,-1.3186458355106234
-1640041200,46710,-0.8465766781270163
-1640732400,45695,-0.849769486750091
-1641164400,40470,-1.1743434761978158
-1641769200,39470,-1.5414756939315772
-1642374000,32855,-1.9392243408846523
-1643065200,35455,-1.9170149765395936
-1643670000,36235,-1.2620415093985304
-1644274800,41560,-0.2874286253809921
-1644879600,36340,-0.13253876857820263
-1645570800,34300,-0.7810445144919782
-1646175600,37180,-0.9337920058496736
-1646780400,37495,-1.0204756056302458
-1647381600,38810,-0.5637099275097889
-1647986400,41815,2.2573838237991812
-1648591200,44345,1.9610737032219583
-1649196000,39190,0.4696281521337181
-1649800800,38535,-0.5649914417812179
-1650492000,37665,-1.0684854725900501
-1651096800,37420,-1.103897947768284
-1651701600,28105,-1.6618351680038488
-1652306400,25350,-1.717969976840849
-1652911200,28555,-1.4390657684829045
-1653516000,27890,-0.9800698609772789
-1654207200,29130,-0.700349713988929
-1654812000,20025,-1.5913091451940666
-1655416800,19600,-2.44391130759689
-1656280800,18525,-1.9144824435243408
-1656885600,18985,-1.1630159442236603
-1657576800,18830,-0.8406070475265219
-1658181600,21575,-0.41258007536801367
-1658786400,20715,-0.16046951349779276
-1659391200,22405,0.09626315638606557
-1659996000,22630,0.4433265954228646
-1660600800,20805,-0.020929807325821746
-1661205600,19345,-1.4531175151229532
-1661810400,18480,-2.232413357809659
-1662501600,18360,-1.140306939077604
-1663106400,18195,-0.9011393461178316
-1663711200,18085,-0.9355167234378449
-1664316000,18440,-0.9413732785809208
-1664920800,18760,-1.0796904995819812
-1665525600,17810,-1.864760621232771
-1666130400,18615,-1.675810035256016
-1666735200,19960,1.416733893989446
-1667340000,16835,1.2043924119627125
-1667948400,14925,-3.0816793005624037
-1668553200,15355,-2.261152470176138
-1669158000,15540,-1.3563417402429623
-1669849200,16055,-0.697513029660624
-1670454000,16665,-0.28115243535519596
-1671058800,16275,-0.35835184900210465
-1671663600,16220,-1.2125327125363956
-1672354800,16090,-1.5044521157072217
-1672700400,16525,-1.2482265041480756
-1673305200,17135,2.654051584815002
-1673996400,20460,2.724747847166451
-1674601200,22345,1.8464948234824792
-1675206000,22725,1.2550374930640176
-1675810800,21380,0.6786883000531629
-1676415600,22100,0.8511444732667719
-1677106800,22965,1.021362787041475
-1677711600,21880,0.8699509826287732
-1678316400,19520,0.632556202112444
-1678917600,24250,3.568333408593128
-1679522400,26520,2.39824173069799
-1680127200,27595,1.5982913044632059
-1680732000,27765,1.212268224873496
-1681336800,29010,1.084252067738759
-1681941600,26980,0.6123814317269662
-1682546400,27710,0.6977436054546057
-1683151200,26745,0.6628441462843677
-1683756000,25840,-0.7526074961442596
-1684360800,26015,-1.0143919689792265
-1684965600,25985,-0.6979073523868989
-1685656800,25315,-0.7247738629894493
-1686261600,24745,-1.1614540146961192
-1686866400,25145,1.2874309896504958
-1687730400,29605,2.4032538768332388
-1688335200,29875,1.555414899815418
-1689026400,29740,0.9525938169980366
-1689631200,28810,0.42164792236203613
-1690236000,29055,0.042032038514049824
-1690840800,28625,-0.25366704414482844
-1691445600,29095,-0.08000323138593575
-1692050400,25600,-1.3754100538749159
-1692655200,25585,-2.038965097585643
-1693260000,25400,-1.545929608415655
-1693951200,24925,-1.2230960319703506
-1694556000,25845,-0.6999354056721443
-1695160800,25985,-0.4472534972156857
-1695765600,26080,0.039549044725362754
-1696370400,27270,1.0307301120036971
-1696975200,26575,0.817164735263846
-1697580000,28175,2.185711268753963
-1698184800,33655,2.3922994467148544
-1698789600,34310,1.739805006156302
-1699398000,34820,1.3437926159892477
-1700002800,35490,1.062730140774025
-1700607600,36185,1.0667721670929609
-1701298800,37870,1.7819994179352854
-1701903600,40450,1.9688959516365603
-1702508400,40705,1.5469831050935878
-1703113200,41645,1.1908309230944218
-1703804400,41930,1.1232317809908934
-1704150000,41110,1.264225324652187
-1704754800,41705,1.5630616613728048
-1705446000,38540,0.3257772515548941
-1706050800,39450,-0.6426756163233008
-1706655600,42100,0.05009963876591992
-1707260400,42930,2.2121260325568612
-1707865200,49535,2.410108693773341
-1708556400,51225,1.9661590568053298
-1709161200,60120,1.8527254266876385
-1709766000,66060,1.712692649952586
-1710367200,61020,1.1714483415407986
-1710972000,62655,0.8809919943576584
-1711576800,64910,0.7720842033608153
-1712268000,66300,1.0999377640618357
-1712872800,59705,0.4774341321080027
-1713477600,59635,-0.2968998211909338
-1714082400,56910,-1.366783594945837
-1714687200,59265,-0.808413372492763
-1715292000,60425,-0.3380097822493102
-1715896800,65345,1.1081049878922293
-1716501600,66730,1.5301034059664953
-1717365600,68070,1.3028820528538034
-1717970400,65200,0.5594961396961768
-1718575200,58410,-0.4187138501277303
-1719266400,59890,-1.5997818219559035
-1719871200,53635,-1.6030365919123812
-1720562400,56685,-0.9333122184944184
-1721167200,63340,0.10707305678712897
-1721772000,64080,0.9317745083248107
-1722376800,49365,-0.1958065061985352
-1722981600,54790,-1.2401454866969681
-1723586400,56295,-1.2048784638948258
-1724191200,58900,-0.2651077951923626
-1724796000,55725,-0.4630764995266635
-1725487200,52820,-1.0903975926193676
-1726092000,57415,-1.2816799875167748
-1726696800,60345,1.3631997834117051
-1727301600,60265,1.4830938057533256
-1727906400,60070,0.7422860502484199
-1728511200,58945,0.8810726417632768
-1729116000,65210,1.4359349420832948
-1729720800,66375,1.963253295259471
-1730325600,67140,1.6340122202014937
-1730934000,75070,2.3847054961521743
-1731538800,87005,2.062773133493848
-1732143600,91720,1.622351818348902
-1732748400,94435,1.254049722092241
-1733439600,94640,1.0445238205758733
-1734044400,95765,1.0975724732752723
-1734649200,92355,0.8865790022522918
-1735513200,91735,0.7504465566742485
-1735772400,92745,0.9776044901370697
-1736377200,89525,0.4862470115921677
-1736982000,97555,2.504701238287769
-1737673200,97650,2.3811660377321426
-1738278000,91455,0.9823368443588846
-1738882800,94285,-0.3906936640331172
-1739487600,93305,-0.8261088411501643
-1740351600,78675,-1.9264988108699181
-1740956400,81815,-1.3533248076321038
-1741557600,76735,-1.3404109125089285
-1742162400,81120,-1.058654492202546
-1742767200,83800,-0.6253420113581283
-1743372000,81400,-0.7212376924854816
-1743976800,74635,-2.0495132274198604
-1744581600,83190,-1.5711018438255038
-1745272800,87070,2.295365192033704
-1745877600,93445,1.886573153744274
-1746482400,93685,1.5202682715314015
-1747087200,101705,1.3084663907557885
-1747692000,104435,1.3288130995850618
-1748383200,104100,1.0601668826268036
-1748988000,100815,0.9078715212704922
-1749592800,103010,0.9299782492113332
-1750197600,99090,0.7981980610650797
-1750888800,105440,2.1361065463011686
-1751493600,107680,4.823132733396319
-1752184800,115635,2.995127839239229
-1752789600,116275,1.9109324979976368
-1753394400,115675,1.1828065881551821
-1753999200,113045,0.5912928464308436
-1754604000,116295,0.8846690022234135
-1755208800,112075,0.569560652348852
-1755813600,108845,-1.130558577189465
-1756418400,107790,-1.3697734454211041
-1757282400,111000,-0.5424480076913258
-1757887200,114635,0.47726411737613145
-1758492000,109225,-0.2247759608909948
-1759096800,111355,1.1726469881467811
-1759701600,113150,1.9869498739970317
-1760306400,103745,-0.057401563603568025
-1760911200,106950,-1.5779350078450567
-1761516000,106735,-1.2306569606854274
-1762124400,99250,-1.5133451204585915
-1762729200,94230,-1.467123743539528
-1763334000,80750,-1.8557276277687647
-1763938800,84120,-1.6074101967213892
-1764630000,86500,-1.0649891880909297
-1765234800,85325,-0.7631667689638638
-1765839600,84505,-1.0298518636169267
-1766444400,86760,-1.449262539104575
-1767135600,87470,-1.5967148757558143
-1767308400,88720,-1.2031068711052628
-1767913200,89825,0.9015826220351025
-1768518000,87270,0.23634846794923425
-1769382000,81210,-1.2265859219624324
-1769986800,60005,-3.1223663685088474
-1770591600,68000,-2.6326172132354886`;
+// ==========================================
+//  DRAWING ENGINE
+// ==========================================
+const drawState = {
+    tool: 'select',
+    color: '#ff4444',
+    strokeWidth: 2,
+    fontSize: 14,
+    dashed: false,
+    drawing: false,
+    startX: 0, startY: 0,
+    items: [],       // completed drawings
+    currentPath: []  // for freehand
+};
 
-// Parse CSV
-const lines = csvData.trim().split('\n');
-const data = lines.slice(1).map(line => {
+const overlay = document.getElementById('drawingOverlay');
+const octx = overlay.getContext('2d');
+
+function resizeOverlay() {
+    const wrapper = document.getElementById('chartWrapper');
+    overlay.width = wrapper.offsetWidth;
+    overlay.height = wrapper.offsetHeight;
+    redrawAll();
+}
+window.addEventListener('resize', resizeOverlay);
+setTimeout(resizeOverlay, 100);
+
+function setTool(t) {
+    drawState.tool = t;
+    document.querySelectorAll('.sidebar .tool-btn[data-tool]').forEach(b => {
+        b.classList.toggle('active', b.dataset.tool === t);
+    });
+    overlay.className = '';
+    if (t === 'select') {
+        // no pointer events
+    } else if (t === 'text') {
+        overlay.classList.add('drawing-active', 'tool-text');
+    } else {
+        overlay.classList.add('drawing-active', 'tool-cursor');
+    }
+}
+
+function setColor(c) {
+    drawState.color = c;
+    document.getElementById('colorPick').style.background = c;
+    document.getElementById('colorInput').value = c;
+}
+
+function toggleDash() {
+    drawState.dashed = !drawState.dashed;
+    document.getElementById('dashBtn').classList.toggle('active', drawState.dashed);
+}
+
+function getPos(e) {
+    const r = overlay.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+// Mouse events
+overlay.addEventListener('mousedown', e => {
+    if (drawState.tool === 'select') return;
+    const p = getPos(e);
+    drawState.drawing = true;
+    drawState.startX = p.x;
+    drawState.startY = p.y;
+
+    if (drawState.tool === 'pencil') {
+        drawState.currentPath = [p];
+    }
+    if (drawState.tool === 'text') {
+        drawState.drawing = false;
+        const txt = prompt('Texto:');
+        if (txt) {
+            drawState.items.push({
+                type: 'text', text: txt,
+                x: p.x, y: p.y,
+                color: drawState.color,
+                fontSize: drawState.fontSize
+            });
+            redrawAll();
+        }
+    }
+});
+
+overlay.addEventListener('mousemove', e => {
+    if (!drawState.drawing) return;
+    const p = getPos(e);
+
+    if (drawState.tool === 'pencil') {
+        drawState.currentPath.push(p);
+    }
+    // Live preview
+    redrawAll();
+    drawPreview(p);
+});
+
+overlay.addEventListener('mouseup', e => {
+    if (!drawState.drawing) return;
+    const p = getPos(e);
+    drawState.drawing = false;
+
+    const base = {
+        color: drawState.color,
+        strokeWidth: drawState.strokeWidth,
+        dashed: drawState.dashed
+    };
+
+    if (drawState.tool === 'pencil' && drawState.currentPath.length > 1) {
+        drawState.items.push({ ...base, type: 'pencil', path: [...drawState.currentPath] });
+    } else if (drawState.tool === 'line') {
+        drawState.items.push({ ...base, type: 'line', x1: drawState.startX, y1: drawState.startY, x2: p.x, y2: p.y });
+    } else if (drawState.tool === 'hline') {
+        drawState.items.push({ ...base, type: 'hline', y: drawState.startY, x1: 0, x2: overlay.width });
+    } else if (drawState.tool === 'arrow') {
+        drawState.items.push({ ...base, type: 'arrow', x1: drawState.startX, y1: drawState.startY, x2: p.x, y2: p.y });
+    } else if (drawState.tool === 'rect') {
+        drawState.items.push({ ...base, type: 'rect',
+            x: Math.min(drawState.startX, p.x), y: Math.min(drawState.startY, p.y),
+            w: Math.abs(p.x - drawState.startX), h: Math.abs(p.y - drawState.startY)
+        });
+    } else if (drawState.tool === 'circle') {
+        const cx = (drawState.startX + p.x) / 2;
+        const cy = (drawState.startY + p.y) / 2;
+        const rx = Math.abs(p.x - drawState.startX) / 2;
+        const ry = Math.abs(p.y - drawState.startY) / 2;
+        drawState.items.push({ ...base, type: 'circle', cx, cy, rx, ry });
+    }
+
+    drawState.currentPath = [];
+    redrawAll();
+});
+
+// Drawing functions
+function applyStyle(ctx, item) {
+    ctx.strokeStyle = item.color;
+    ctx.lineWidth = item.strokeWidth;
+    ctx.setLineDash(item.dashed ? [8, 5] : []);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+}
+
+function drawItem(ctx, item) {
+    ctx.save();
+    if (item.type === 'text') {
+        ctx.font = `${item.fontSize}px Segoe UI, system-ui, sans-serif`;
+        ctx.fillStyle = item.color;
+        ctx.fillText(item.text, item.x, item.y);
+    } else {
+        applyStyle(ctx, item);
+        ctx.beginPath();
+        if (item.type === 'pencil') {
+            ctx.moveTo(item.path[0].x, item.path[0].y);
+            for (let i = 1; i < item.path.length; i++) ctx.lineTo(item.path[i].x, item.path[i].y);
+            ctx.stroke();
+        } else if (item.type === 'line') {
+            ctx.moveTo(item.x1, item.y1);
+            ctx.lineTo(item.x2, item.y2);
+            ctx.stroke();
+        } else if (item.type === 'hline') {
+            ctx.moveTo(item.x1, item.y);
+            ctx.lineTo(item.x2, item.y);
+            ctx.stroke();
+        } else if (item.type === 'arrow') {
+            ctx.moveTo(item.x1, item.y1);
+            ctx.lineTo(item.x2, item.y2);
+            ctx.stroke();
+            // Arrowhead
+            const angle = Math.atan2(item.y2 - item.y1, item.x2 - item.x1);
+            const hl = 12;
+            ctx.beginPath();
+            ctx.moveTo(item.x2, item.y2);
+            ctx.lineTo(item.x2 - hl * Math.cos(angle - 0.4), item.y2 - hl * Math.sin(angle - 0.4));
+            ctx.moveTo(item.x2, item.y2);
+            ctx.lineTo(item.x2 - hl * Math.cos(angle + 0.4), item.y2 - hl * Math.sin(angle + 0.4));
+            ctx.stroke();
+        } else if (item.type === 'rect') {
+            ctx.strokeRect(item.x, item.y, item.w, item.h);
+        } else if (item.type === 'circle') {
+            ctx.ellipse(item.cx, item.cy, item.rx, item.ry, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+    ctx.restore();
+}
+
+function drawPreview(p) {
+    octx.save();
+    octx.strokeStyle = drawState.color;
+    octx.lineWidth = drawState.strokeWidth;
+    octx.setLineDash(drawState.dashed ? [8, 5] : []);
+    octx.lineCap = 'round';
+    octx.lineJoin = 'round';
+    octx.globalAlpha = 0.6;
+    octx.beginPath();
+
+    if (drawState.tool === 'pencil' && drawState.currentPath.length > 1) {
+        octx.moveTo(drawState.currentPath[0].x, drawState.currentPath[0].y);
+        for (let i = 1; i < drawState.currentPath.length; i++) octx.lineTo(drawState.currentPath[i].x, drawState.currentPath[i].y);
+        octx.stroke();
+    } else if (drawState.tool === 'line') {
+        octx.moveTo(drawState.startX, drawState.startY);
+        octx.lineTo(p.x, p.y);
+        octx.stroke();
+    } else if (drawState.tool === 'hline') {
+        octx.moveTo(0, drawState.startY);
+        octx.lineTo(overlay.width, drawState.startY);
+        octx.stroke();
+    } else if (drawState.tool === 'arrow') {
+        octx.moveTo(drawState.startX, drawState.startY);
+        octx.lineTo(p.x, p.y);
+        octx.stroke();
+        const angle = Math.atan2(p.y - drawState.startY, p.x - drawState.startX);
+        const hl = 12;
+        octx.beginPath();
+        octx.moveTo(p.x, p.y);
+        octx.lineTo(p.x - hl * Math.cos(angle - 0.4), p.y - hl * Math.sin(angle - 0.4));
+        octx.moveTo(p.x, p.y);
+        octx.lineTo(p.x - hl * Math.cos(angle + 0.4), p.y - hl * Math.sin(angle + 0.4));
+        octx.stroke();
+    } else if (drawState.tool === 'rect') {
+        octx.strokeRect(
+            Math.min(drawState.startX, p.x), Math.min(drawState.startY, p.y),
+            Math.abs(p.x - drawState.startX), Math.abs(p.y - drawState.startY)
+        );
+    } else if (drawState.tool === 'circle') {
+        const cx = (drawState.startX + p.x) / 2;
+        const cy = (drawState.startY + p.y) / 2;
+        const rx = Math.abs(p.x - drawState.startX) / 2;
+        const ry = Math.abs(p.y - drawState.startY) / 2;
+        if (rx > 0 && ry > 0) {
+            octx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            octx.stroke();
+        }
+    }
+    octx.restore();
+}
+
+function redrawAll() {
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    drawState.items.forEach(item => drawItem(octx, item));
+}
+
+function undoDraw() {
+    drawState.items.pop();
+    redrawAll();
+}
+
+function clearDraw() {
+    if (drawState.items.length && !confirm('Limpar todos os desenhos?')) return;
+    drawState.items = [];
+    redrawAll();
+}
+
+// Keyboard shortcut
+document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undoDraw(); }
+    if (e.key === 'Escape') setTool('select');
+});
+
+// ==========================================
+//  CSV DATA
+// ==========================================
+const btcCsvData = `time,close,RSI
+1313366400,10,
+1314576000,7.4,
+1315785600,6.05,
+1316995200,3.89,
+1318204800,2.27,
+1319414400,2.95,
+1320624000,2.37,
+1321833600,2.93,
+1323043200,3.5,
+1324252800,5,
+1325462400,7.15,
+1326672000,5.5,
+1327881600,5.67,
+1329091200,4.98,
+1330300800,5,34.662576687116555
+1331510400,4.54,33.64019419254373
+1332720000,4.76,34.63321696037535
+1333929600,5.17,36.53914235198804
+1335139200,5.08,36.28901150236201
+1336348800,5.03,36.14099124769127
+1337558400,5.19,37.026189692058516
+1338768000,6.19,42.4002639493883
+1339977600,6.52,44.09572317020305
+1341187200,7.57,49.217717731697334
+1342396800,8.71,54.13142789046894
+1343606400,11.49,63.425402877063384
+1344816000,10.31,58.048874106995406
+1346025600,10.98,60.11621721525904
+1347235200,11.99,63.070635788229175
+1348444800,11.71,61.705976446482936
+1349654400,11.32,59.76623346314774
+1350864000,10.64,56.43507671267007
+1352073600,11.51,59.54205371777671
+1353283200,12.42,62.550574835575105
+1354492800,13.27,65.15689797740218
+1355702400,13.2,64.7571972433627
+1356912000,13.15,64.45305642488846
+1357516800,15.5,71.2803471143413
+1358726400,20.29,79.79762604318171
+1359936000,26.98,86.02940334924864
+1361145600,34.33,89.7648947256805
+1362355200,47.24,93.20276064008523
+1363564800,96.15,97.13247100353821
+1364774400,91.11,91.27642908391459
+1365984000,135.28,94.4400859063438
+1367193600,114.5,79.78127133098079
+1368403200,129.5,81.95823820947864
+1369612800,100.17,66.81048874702213
+1370822400,100.41,66.86445639130147
+1372032000,73.96,56.047857232083906
+1373241600,85.93,59.25982696694114
+1374451200,96.38,61.87899045805687
+1375660800,99.3,62.60248249868311
+1376870400,130.66,69.33389072501686
+1378080000,125.36,67.13454401706721
+1379289600,127.01,67.48039273957482
+1380499200,132.82,68.7282794557141
+1381708800,194,78.21027341178275
+1382918400,323,87.09532423023609
+1384128000,800.05,95.0819262630372
+1385337600,784.9,93.11109342570832
+1386547200,614.11,74.39104503844108
+1387756800,903.43,81.263300940341
+1388966400,841.13,76.50252740235695
+1390176000,815,74.5303221607301
+1391385600,619.01,61.6852428281898
+1392595200,561.36,58.49187170886013
+1393804800,633.04,61.18264682016117
+1395014400,460,52.3586405737032
+1396224000,416.3,50.38241663967136
+1397433600,430,51.00673767093006
+1398643200,440,51.48657979059515
+1399852800,573.9,57.49023778330473
+1401062400,658,60.77369633681356
+1402272000,600.34,57.49474950428265
+1403481600,630.57,58.751292238449615
+1404691200,627,58.53123426058067
+1405900800,588.73,56.10519566746635
+1407110400,496.86,50.67513281933291
+1408320000,479.04,49.670927061099135
+1409529600,475.49,49.46064948444439
+1410739200,375.35,43.82462554714812
+1411948800,378.11,44.01398141873864
+1413158400,355.18,42.72543822215702
+1414368000,364.77,43.4708225012196
+1415577600,367.17,43.6684047036854
+1416787200,377.26,44.54595694327303
+1417996800,320.01,40.67419291419711
+1419206400,264,37.26194286772956
+1420416000,211.85,34.37070533997017
+1421625600,226.93,35.91908930104165
+1422835200,235.63,36.84483645555723
+1424044800,258.34,39.30955099029203
+1425254400,286.75,42.341088753000044
+1426464000,242,39.03367475417528
+1427673600,236.5,38.634233267058534
+1428883200,219.52,37.363028587736146
+1430092800,239.13,39.82554940233112
+1431302400,239.22,39.837239725363595
+1432512000,222.7,38.36394427874385
+1433721600,243.64,41.32602855296285
+1434931200,271.5,45.1059026774775
+1436140800,275.47,45.643279801222896
+1437350400,282.32,46.61437675514206
+1438560000,256.11,43.41812112273903
+1439769600,229,40.33723972124383
+1440979200,229.66,40.44802937196634
+1442188800,232.41,40.940138832976274
+1443398400,248.05,43.785283416149575
+1444608000,283.96,49.768705370746275
+1445817600,372.65,60.85168654109305
+1447027200,324.2,53.860421288975076
+1448236800,388.24,60.34553352454047
+1449446400,442.54,64.85606252268504
+1450656000,431.04,63.21605642702649
+1451865600,380.16,56.418534318369765
+1453075200,368.49,54.958816080494096
+1454284800,405,58.57029233533984
+1455494400,431.68,61.029363732919364
+1456704000,413.04,58.420397010432985
+1457913600,416.64,58.78684039401667
+1459123200,418.36,58.972881192509014
+1460332800,460.02,63.29478911024604
+1461542400,458.21,62.984346653322895
+1462752000,438.8,59.607982935990464
+1463961600,573.91,71.1866200713109
+1465171200,761.44,79.82933324003577
+1466380800,658.27,67.7832551170745
+1467590400,679.54,68.82761911083652
+1468800000,623.83,63.061484530405515
+1470009600,568.76,57.897898362178715
+1471219200,573.2,58.19511074040957
+1472428800,606.32,60.438613767162146
+1473638400,598.98,59.67429018478201
+1474848000,613.06,60.70097195889754
+1476057600,648.74,63.254083505968104
+1477267200,709.93,67.19071722386796
+1478476800,727.09,68.21898264939472
+1479686400,762,70.26096778639237
+1480896000,788.67,71.75409929293879
+1482105600,997.75,80.16275736416054
+1483315200,821.86,63.135082226332116
+1484524800,912.01,67.0037111219475
+1485734400,1000.73,70.30625955379709
+1486944000,1179.05,75.59373762852395
+1488153600,1226.62,76.78151573457566
+1489363200,960,59.34801842744494
+1490572800,1206.2,66.83614045082598
+1491782400,1241.99,67.76568034641176
+1492992000,1554.01,74.48106544583183
+1494201600,2017.55,80.86039295163363
+1495411200,2530.27,85.25199798733411
+1496620800,2516.98,84.70943340556352
+1497830400,2504.37,84.16211719044637
+1499040000,1917.63,63.57812718922164
+1500249600,2742.37,73.41911000644664
+1501459200,4053.87,81.82768466086857
+1502668800,4337.68,83.07539959174208
+1503878400,4226.22,80.73105334385995
+1505088000,3664.22,70.0041350976898
+1506297600,4597.98,75.76578581883277
+1507507200,5969,81.41154191832257
+1508716800,7372.72,85.21052464899911
+1509926400,8016.58,86.56666159891822
+1511136000,11250,91.0199779183085
+1512345600,18953,95.14728527318537
+1513555200,13880,71.75668278914347
+1514764800,13647.99,70.89824853614216
+1515974400,11685.58,63.93154091463915
+1517184000,8067,53.49335498849608
+1518393600,9590.04,56.69797044166551
+1519603200,9535.04,56.54643918069176
+1520812800,8453.9,53.51853009934684
+1522022400,7027.26,49.73403126412462
+1523232000,8789.96,54.056910350728835
+1524441600,9623.54,55.98468562003164
+1525651200,8518.48,52.82049987401896
+1526860800,7703.67,50.55176261348431
+1528070400,6453.41,47.20159136259399
+1529280000,6349.99,46.924565798962455
+1530489600,6349.3,46.92258712428219
+1531699200,8216.74,52.731897163272805
+1532908800,6310.82,47.069537707343805
+1534118400,6700.46,48.29197211156245
+1535328000,6236.04,46.9015734142492
+1536537600,6702.22,48.5043119642927
+1537747200,6577.63,48.08655955034673
+1538956800,6413.38,47.50567346338279
+1540166400,6421.76,47.54049234384223
+1541376000,5559.26,44.28470549946838
+1542585600,4102.05,39.37796309339231
+1543795200,3193.78,36.65203087858153
+1545004800,3835.79,39.82308206031302
+1546214400,4040.71,40.841013477497164
+1546819200,3536.72,39.08966417938213
+1548028800,3414.82,38.65786619561191
+1549238400,3625.6,39.894227019648774
+1550448000,3789.52,40.89197313821123
+1551657600,3965.5,42.00501211696062
+1552867200,4096.08,42.86475002775179
+1554076800,5162.72,49.45604466768491
+1555286400,5160.98,49.4460235991761
+1556496000,6974.35,58.81260018431544
+1557705600,8733.26,65.49135304643752
+1558915200,7632.99,59.041782529482404
+1560124800,10831.95,68.6947056196615
+1561334400,11469.96,70.20302507642238
+1562544000,10600.24,65.56548700997061
+1563753600,10986.96,66.62133755829676
+1564963200,10318.99,63.02652010326211
+1566172800,9767.53,60.14130571813305
+1567382400,10305.74,61.97105452347679
+1568592000,8047.6,51.32515305836437
+1569801600,8282.96,52.245963255498765
+1571011200,9557.08,56.98950106879274
+1572220800,9024.49,54.550250660092125
+1573430400,6908.36,46.10613342842762
+1574640000,7524.26,48.59999973714274
+1575849600,7509.7,48.5428130919269
+1577059200,7356.7,47.904912299467135
+1578268800,8696.6,53.6493752553553
+1579478400,9329.39,56.110776739836844
+1580688000,9912.89,58.309304446559324
+1581897600,8528.95,51.69500686105961
+1583107200,5343.64,40.34992308377584
+1584316800,5870.9,42.59567375220494
+1585526400,6908.24,46.836451147231074
+1586736000,7701.73,49.88619422555737
+1587945600,8731.17,53.604692724239975
+1589155200,8718.77,53.553146062647386
+1590364800,9750.04,57.23621035169005
+1591574400,9283.03,55.10520708579488
+1592784000,9076.82,54.14657391633154
+1593993600,9211.99,54.70284440409234
+1595203200,11071.66,61.604251171975335
+1596412800,11914.02,64.26045983266921
+1597622400,11708.97,63.11583257723009
+1598832000,10334.78,55.92619174812095
+1600041600,10780.66,57.61334269534128
+1601251200,11372.93,59.81391424993962
+1602460800,13039.09,65.27555675493932
+1603670400,15489.15,71.42549760405448
+1604880000,18435.2,76.75626406973808
+1606089600,19380.58,78.16404217962601
+1607299200,23470.85,82.96994146839106
+1608508800,33097.83,89.06829951443785
+1609718400,35819.25,90.1428756683734
+1610928000,33141.38,81.63884304897618
+1612137600,48662.5,88.44381406570491
+1613347200,45240.96,81.29137820847666
+1614556800,59016.39,86.14827268919133
+1615766400,55790.92,80.85532014948225
+1616976000,59979.26,82.37005298140856
+1618185600,49128.43,67.47515494675989
+1619395200,58305.24,72.07437832518218
+1620604800,34706.79,51.79235265864783
+1621814400,35808.85,52.46509612328569
+1623024000,35589.77,52.30882071031387
+1624233600,35289.21,52.07962779582555
+1625443200,31776.65,49.3578079596606
+1626652800,39839,55.15157795201068
+1627862400,47028.3,59.59109270273816
+1629072000,48808.72,60.63046039500095
+1630281600,46035,58.12227547734597
+1631491200,43204.73,55.59499014479813
+1632700800,54714.95,62.69857443433523
+1633910400,60910.16,65.8638878274489
+1635120000,63300,67.02629042291409
+1636329600,58678.47,62.587813865682755
+1637539200,49463.22,54.795920478691
+1638748800,46704.67,52.681601022970604
+1639958400,47350.22,53.13730555063204
+1641168000,43107.7,49.74656108264151
+1642377600,37941.82,45.905384593445156
+1643587200,42077.74,49.28195786100048
+1644796800,37712.68,46.01724123768936
+1646006400,37790.54,46.085848356049766
+1647216000,46864.39,53.502466200027484
+1648425600,42133.85,49.666535116156
+1649635200,39467.4,47.595121424363235
+1650844800,34025.5,43.59864068599451
+1652054400,30264.66,41.03426901741289
+1653264000,29888.98,40.776260928478074
+1654473600,20552.82,34.90294239336234
+1655683200,19294.46,34.18816106543538
+1656892800,20801.85,35.88209280505434
+1658102400,23322.53,38.72243176391465
+1659312000,24320,39.85780054729835
+1660521600,19557,36.390519069724036
+1661731200,21835,39.118365367314155
+1662940800,18810,36.85796317997144
+1664150400,19445,37.67214283507812
+1665360000,19574,37.847474802245756
+1666569600,20907,39.73405807982488
+1667779200,16256,35.66612329156172
+1668988800,17114,36.94854773105223
+1670198400,16749,36.614174447626105
+1671408000,16615,36.48363884992413
+1672617600,20885,43.407471664271185
+1673827200,23746,47.53425328541975
+1675036800,21789,45.11103343323548
+1676246400,23562,47.71174896416763
+1677456000,22183,45.89049401889474
+1678665600,28004,53.89149721665207
+1679875200,28340,54.311453974354755
+1681084800,27596,53.15693304258131
+1682294400,28472,54.386410266274176
+1683504000,26750,51.5235842368289
+1684713600,27125,52.114722908809846
+1685923200,26340,50.72039609613013
+1687132800,30616,57.405529695441366
+1688342400,30253,56.702300050836456
+1689552000,29279,54.76376458221884
+1690761600,29284,54.772312752934454
+1691971200,26090,48.47116349878654
+1693180800,25836,47.99826523781724
+1694390400,26248,48.86965248475764
+1695600000,27933,52.38391669535571
+1696809600,30002,56.351032758604205
+1698019200,35045,64.18378051446211
+1699228800,37426,67.17848455462568
+1700438400,39989,70.07868939065946
+1701648000,41345,71.51290351778988
+1702857600,42258,72.46974370931933
+1704067200,41715,70.94352173586762
+1705276800,42026,71.31612278557608
+1706486400,48313,77.57618168538481
+1707696000,51722,80.11087006559404
+1708905600,69026,87.70683452530663
+1710115200,67188,84.03558380620336
+1711324800,69358,84.84228597929096
+1712534400,64950,76.39719847469586
+1713744000,64021,74.70938000063867
+1714953600,66275,76.08962917433976
+1716163200,67752,76.97634322252796
+1717372800,66622,74.69407816668009
+1718582400,62676,67.20119250703472
+1719792000,60823,63.95666283561509
+1721001600,68264,70.18236728653136
+1722211200,58725,56.66895725820344
+1723420800,64262,61.324106943218254
+1724630400,54866,51.26017362166115
+1725840000,63563,58.112419511747774
+1727049600,62814,57.364441617696485
+1728259200,69011,61.751003065062434
+1729468800,68738,61.451054054884175
+1730678400,89861,72.55803920986715
+1731888000,97291,75.25844243757462
+1733097600,104427,77.54402114085488
+1734307200,93557,67.3393818968221
+1735516800,98327,69.25163296735187
+1736121600,101237,70.39059560553622
+1737331200,97675,67.1135445515936
+1738540800,96132,65.68693779016483
+1739750400,94273,63.92392413464003
+1740960000,82555,54.07225287169071
+1742169600,82359,53.922558924933185
+1743379200,83712,54.85173338533726
+1744588800,93769,61.12675273605932
+1745798400,104129,66.31982448619908
+1747008000,109068,68.48155819754746
+1748217600,105792,65.4794758961952
+1749427200,101015,61.262149419662705
+1750636800,109233,65.39174318615184
+1751846400,117339,68.91211208333101
+1753056000,114226,66.13006420710471
+1754265600,117490,67.60672131044758
+1755475200,108269,59.689451765267066
+1756684800,115342,63.24504275879126
+1757894400,112203,60.68669871988439
+1759104000,115090,62.2011362136774
+1760313600,114551,61.72307221712149
+1761523200,104705,53.616424211880705
+1762732800,86803,42.64850991262065
+1763942400,90405,45.08274147832832
+1765152000,88636,44.092924506114265
+1766361600,91501,46.15484852894302
+1767571200,93636,47.70274778312151
+1768780800,76888,38.38160819120532
+1769990400,69131,34.97302186203588`;
+
+const lwbcCsvData = `time,close,LWBC
+1312156800,8,
+1314835200,4.82,
+1317427200,3.3,
+1320105600,3.19,
+1322697600,4.58,
+1325376000,5.3,
+1328054400,4.99,
+1330560000,4.9,
+1333238400,5,
+1335830400,5.17,
+1338508800,6.61,
+1341100800,9.28,
+1343779200,10.16,
+1346457600,12.22,
+1349049600,11,2041.2108608219885
+1351728000,12.43,2233.5895666185493
+1354320000,13.24,2363.517307441037
+1356998400,20.46,2515.595328908801
+1359676800,33.53,2495.6960518638143
+1362096000,96.15,2269.835392942814
+1364774400,139.88,2368.1472904672405
+1367366400,127.91,2793.583411199219
+1370044800,89.53,3059.829462659745
+1372636800,98.28,2801.553683838367
+1375315200,128,2684.987264957801
+1377993600,126.25,3070.9438022947706
+1380585600,203.54,3055.6607787612784
+1383264000,1119.8,3174.3875222359356
+1385856000,732,3601.0144700925825
+1388534400,803,3066.1228717149543
+1391212800,550.1,2772.0214232664575
+1393632000,454.83,2682.0081730645447
+1396310400,448.85,2661.8137737068973
+1398902400,627.8,2979.1786519606503
+1401580800,641.11,2859.8189628721902
+1404172800,582.04,3005.2088681779587
+1406851200,479.04,2863.9951710084115
+1409529600,391.09,2877.3558110589993
+1412121600,337.99,3079.1635745457197
+1414800000,377.01,2693.190566231265
+1417392000,321,2627.8552307850623
+1420070400,216.9,1954.205984951154
+1422748800,253.47,2440.236299973315
+1425168000,244.24,2593.2734366246973
+1427846400,236.2,2826.874696203134
+1430438400,228.91,2602.5955782915366
+1433116800,262.5,2552.9757396643536
+1435708800,284.33,2452.9919877751395
+1438387200,229.86,2313.903407273989
+1441065600,236.2,2392.8061505547457
+1443657600,310.18,2293.3570783600967
+1446336000,376.71,2114.653838301443
+1448928000,430.89,2337.0438800104093
+1451606400,368.49,2105.4150292592485
+1454284800,435.23,1973.7519531025787
+1456790400,414.66,2119.3620273906204
+1459468800,448.37,2154.0331273061997
+1462060800,531.84,2055.1426972896247
+1464739200,667.95,1989.7359750917528
+1467331200,623.83,1960.077053677737
+1470009600,570.75,1880.9422192885781
+1472688000,608.23,2207.668592809722
+1475280000,697.01,2341.0586177494324
+1477958400,742.06,3392.651178081827
+1480550400,966.3,3244.2893478487213
+1483228800,963.99,3451.6448474292483
+1485907200,1191.21,3251.165911691212
+1488326400,1070.31,3182.95239478959
+1491004800,1350.21,3063.1743289051133
+1493596800,2298.01,3029.273168325434
+1496275200,2465.49,3422.4891659860587
+1498867200,2855.81,3652.4295287335044
+1501545600,4734.26,3847.5160597805325
+1504224000,4326.09,3709.1925068435417
+1506816000,6434.21,3975.1226537925427
+1509494400,9947.67,3906.0164348558146
+1512086400,13880,4179.892403283714
+1514764800,10149,3902.116596363769
+1517443200,10314.9,3884.4556704665406
+1519862400,6928.62,3630.125278991311
+1522540800,9242.17,3721.6772642610795
+1525132800,7492.28,3740.0177462701786
+1527811200,6385.71,3754.731017529921
+1530403200,7725.43,3481.0425146510174
+1533081600,7017.35,3225.6458952172998
+1535760000,6597.81,3606.5204564658934
+1538352000,6303.27,3112.9177918999058
+1541030400,3971.06,3368.6297439292302
+1543622400,3693.3,2872.2498200992723
+1546300800,3413.11,3080.8760603722912
+1548979200,3791.36,3455.600090093282
+1551398400,4096.08,3523.2730402645298
+1554076800,5269,3515.785556994377
+1556668800,8547.2,2866.2754414572223
+1559347200,10760.1,2708.2824519617307
+1561939200,10085.34,2554.603008682909
+1564617600,9594.15,2200.753195892903
+1567296000,8298.45,2479.792428769143
+1569888000,9150.07,2498.212217008689
+1572566400,7550.67,2733.9292682042164
+1575158400,7168.36,2882.1281210139095
+1577836800,9327.85,2376.536070917846
+1580515200,8527.74,2501.875229784973
+1583020800,6421.14,2151.606476239898
+1585699200,8627.32,2182.4399559399853
+1588291200,9446.19,2220.6309644305707
+1590969600,9132.96,2811.2855990702274
+1593561600,11356.74,2711.9698426201708
+1596240000,11655,3170.6545047533505
+1598918400,10778.22,3402.635250293696
+1601510400,13816.08,3509.7455861685494
+1604188800,19700.19,4619.502877090354
+1606780800,28992.79,4450.496304717006
+1609459200,33141.38,4701.265667091942
+1612137600,45240.96,5723.418028433454
+1614556800,58782.58,5567.550703046804
+1617235200,57775.27,6005.047152899373
+1619827200,37341.41,5848.276895203864
+1622505600,35037.23,5693.625686539174
+1625097600,41490.13,5799.220749889615
+1627776000,47156.09,5577.189113880996
+1630454400,43834.43,5286.413268409874
+1633046400,61359.44,5602.098353751288
+1635724800,56974.12,5469.445745045204
+1638316800,46214.37,5600.905859097565
+1640995200,38491.92,5490.253254786554
+1643673600,43178.98,5241.1701491411095
+1646092800,45517.27,5524.28082618489
+1648771200,37639.8,4818.85276525163
+1651363200,31762.76,4905.775215563717
+1654041600,19924.89,3930.6484183222924
+1656633600,23322.53,3772.824986134807
+1659312000,20059,3848.1212968666937
+1661990400,19425,3792.446539224353
+1664582400,20498,3796.764482361441
+1667260800,17170,4227.632755358204
+1669852800,16528,4172.048424284305
+1672531200,23127,4669.731361631282
+1675209600,23136,4800.140905228623
+1677628800,28476,4179.820103300776
+1680307200,29235,3754.580519148644
+1682899200,27219,3345.4458512802066
+1685577600,30469,3864.5960957635325
+1688169600,29231,4087.5996620485835
+1690848000,25932,3865.741888692185
+1693526400,26966,4098.044337712428
+1696118400,34661,3494.2936633634763
+1698796800,37719,3778.8431620597107
+1701388800,42258,3860.3299631451573
+1704067200,42558,3901.0762959357257
+1706745600,61161,3830.7215419191934
+1709251200,71285,3536.131859028044
+1711929600,60632,4456.2845808277825
+1714521600,67477,4398.752848922006
+1717200000,62676,4047.7700876858985
+1719792000,64612,3428.690900492183
+1722470400,58967,3423.192942330996
+1725148800,63302,3740.0026165193112
+1727740800,70231,3248.592432498023
+1730419200,96441,3127.823064241791
+1733011200,93381,3044.1300761550456
+1735689600,102412,3031.5410209792844
+1738368000,84321,3610.5495830804907
+1740787200,82538,3689.25797806883
+1743465600,94181,3006.3640570650427
+1746057600,104646,3173.815465067794
+1748736000,107179,4031.2714288389366
+1751328000,115750,3209.042968648556
+1754006400,108269,3288.0172734031376
+1756684800,114065,3158.5202081995435
+1759276800,109554,3268.775799678047
+1761955200,90382,3182.6585726689436
+1764547200,87496,3714.4214497491184
+1767225600,78635,3511.076042609406
+1769904000,69131,3235.6923028119218`;
+
+// ==========================================
+//  PARSE DATA
+// ==========================================
+const btcLines = btcCsvData.trim().split('\n');
+const btcData = btcLines.slice(1).map(line => {
     const parts = line.split(',');
     return {
         time: new Date(parseInt(parts[0]) * 1000),
-        low: parseFloat(parts[1]),
-        zscore: parts[2] ? parseFloat(parts[2]) : null
+        close: parseFloat(parts[1]),
+        rsi: parts[2] ? parseFloat(parts[2]) : null
     };
 });
 
-// Filter from March 2018
-const march2018 = new Date(2018, 2, 1);
-const filteredData = data.filter(d => d.time >= march2018);
-const zscoreData = filteredData.filter(d => d.zscore !== null);
+const lwbcLines = lwbcCsvData.trim().split('\n');
+const lwbcData = lwbcLines.slice(1).map(line => {
+    const parts = line.split(',');
+    return {
+        time: new Date(parseInt(parts[0]) * 1000),
+        close: parseFloat(parts[1]),
+        lwbc: parts[2] ? parseFloat(parts[2]) : null
+    };
+});
 
-const timeMin = filteredData[0].time;
-// Add 60 days padding so the last price isn't glued to the right edge
-const rawTimeMax = filteredData[filteredData.length - 1].time;
+// Filter from April 2014
+const april2014 = new Date(2014, 3, 1);
+const filteredBtcData = btcData.filter(d => d.time >= april2014);
+const rsiData = filteredBtcData.filter(d => d.rsi !== null);
+const filteredLwbcData = lwbcData.filter(d => d.time >= april2014);
+const lwbcOnlyData = filteredLwbcData.filter(d => d.lwbc !== null);
+
+const timeMin = filteredBtcData[0].time;
+const rawTimeMax = filteredBtcData[filteredBtcData.length - 1].time;
 const timeMax = new Date(rawTimeMax.getTime() + 60 * 24 * 60 * 60 * 1000);
 
 // Colors for dark mode
@@ -506,61 +1153,16 @@ const tooltipBg = '#1a1a1a';
 const tooltipBorder = '#444';
 const tooltipText = '#eee';
 
-// Build z-score lookup by timestamp for BTC green background
-const zscoreLookup = {};
-zscoreData.forEach(d => { zscoreLookup[d.time.getTime()] = d.zscore; });
-
-// Interpolate zscore for each filteredData point
-function getZscoreForTime(t) {
-    const ts = t.getTime();
-    if (zscoreLookup[ts] !== undefined) return zscoreLookup[ts];
-    // Find nearest zscore point
-    let closest = null, minDist = Infinity;
-    for (const d of zscoreData) {
-        const dist = Math.abs(d.time.getTime() - ts);
-        if (dist < minDist) { minDist = dist; closest = d; }
-    }
-    return closest ? closest.zscore : null;
-}
-
-// ============ CHART 1: BTC Low (orange line, LOG scale, green bg when z < -2.8) ============
+// ==========================================
+//  CHART 1: BTC Close (orange, LOG)
+// ==========================================
 const ctx1 = document.getElementById('btcChart').getContext('2d');
 
-// Orange gradient for area fill
-const gradientBtc = ctx1.createLinearGradient(0, 0, 0, 510);
+const gradientBtc = ctx1.createLinearGradient(0, 0, 0, 400);
 gradientBtc.addColorStop(0, 'rgba(245, 124, 0, 0.45)');
 gradientBtc.addColorStop(0.5, 'rgba(245, 124, 0, 0.15)');
 gradientBtc.addColorStop(1, 'rgba(245, 124, 0, 0)');
 
-// Plugin to paint green background on BTC chart where z-score < -2.8
-const greenBgPlugin = {
-    id: 'greenBgPlugin',
-    beforeDraw(chart) {
-        const { ctx, chartArea, scales } = chart;
-        if (!chartArea) return;
-        const xScale = scales.x;
-        const labels = chart.data.labels;
-        
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(chartArea.left, chartArea.top, chartArea.width, chartArea.height);
-        ctx.clip();
-        
-        for (let i = 0; i < labels.length - 1; i++) {
-            const t = labels[i];
-            const z = getZscoreForTime(t);
-            if (z !== null && z < -2.8) {
-                const x1 = xScale.getPixelForValue(labels[i]);
-                const x2 = xScale.getPixelForValue(labels[i + 1]);
-                ctx.fillStyle = 'rgba(0, 180, 70, 0.35)';
-                ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.height);
-            }
-        }
-        ctx.restore();
-    }
-};
-
-// Watermark image for BTC chart
 const watermarkImg = new Image();
 watermarkImg.src = 'wm.png';
 watermarkImg.onload = () => { chart1.draw(); };
@@ -580,23 +1182,13 @@ const watermarkPlugin = {
     }
 };
 
-// Green dots data for BTC (where z < -2.8)
-const btcGreenDots = filteredData.map(d => {
-    const z = getZscoreForTime(d.time);
-    return (z !== null && z < -2.8) ? d.low : null;
-});
-const btcGreenRadius = filteredData.map(d => {
-    const z = getZscoreForTime(d.time);
-    return (z !== null && z < -2.8) ? 5 : 0;
-});
-
 const chart1 = new Chart(ctx1, {
     type: 'line',
     data: {
-        labels: filteredData.map(d => d.time),
+        labels: filteredBtcData.map(d => d.time),
         datasets: [{
-            label: 'BTC Low',
-            data: filteredData.map(d => d.low),
+            label: 'BTC Close',
+            data: filteredBtcData.map(d => d.close),
             borderColor: '#f57c00',
             backgroundColor: gradientBtc,
             borderWidth: 1.4,
@@ -605,22 +1197,9 @@ const chart1 = new Chart(ctx1, {
             pointHoverRadius: 3,
             pointHoverBackgroundColor: '#f57c00',
             tension: 0.1
-        },
-        {
-            label: 'Buy Zone',
-            data: btcGreenDots,
-            borderColor: 'transparent',
-            backgroundColor: 'rgba(0, 200, 80, 0.9)',
-            borderWidth: 0,
-            fill: false,
-            pointRadius: btcGreenRadius,
-            pointBackgroundColor: 'rgba(0, 200, 80, 0.9)',
-            pointBorderColor: 'rgba(0, 200, 80, 0.9)',
-            tension: 0.1,
-            showLine: false
         }]
     },
-    plugins: [greenBgPlugin, watermarkPlugin, {
+    plugins: [watermarkPlugin, {
         id: 'btcLegend',
         afterDraw(chart) {
             const { ctx, chartArea } = chart;
@@ -644,48 +1223,28 @@ const chart1 = new Chart(ctx1, {
         maintainAspectRatio: false,
         layout: { padding: { top: 20, right: 40, left: 4, bottom: 15 } },
         interaction: { intersect: false, mode: 'index' },
-        plugins: {
-            title: { display: false },
-            legend: { display: false },
+        plugins: { title: { display: false }, legend: { display: false },
             tooltip: {
-                backgroundColor: tooltipBg,
-                borderColor: tooltipBorder,
-                borderWidth: 1,
-                titleColor: tooltipText,
-                bodyColor: tooltipText,
-                titleFont: { size: 11, weight: '600' },
-                bodyFont: { size: 11 },
-                padding: 8,
-                displayColors: false,
-                callbacks: {
-                    label: function(c) { return '$' + c.parsed.y.toLocaleString(); }
-                }
+                backgroundColor: tooltipBg, borderColor: tooltipBorder, borderWidth: 1,
+                titleColor: tooltipText, bodyColor: tooltipText,
+                titleFont: { size: 11, weight: '600' }, bodyFont: { size: 11 },
+                padding: 8, displayColors: false,
+                callbacks: { label: c => '$' + c.parsed.y.toLocaleString() }
             }
         },
         scales: {
             x: {
-                type: 'time',
-                min: timeMin,
-                max: timeMax,
+                type: 'time', min: timeMin, max: timeMax,
                 time: { unit: 'year', displayFormats: { year: 'yyyy-MM' } },
-                grid: { display: false },
-                ticks: { display: false },
+                grid: { display: false }, ticks: { display: false },
                 border: { color: borderColor }
             },
             y: {
-                type: 'logarithmic',
-                position: 'right',
+                type: 'logarithmic', position: 'right',
                 grid: { display: false },
                 ticks: {
-                    color: tickColor,
-                    font: { size: 11, family: 'Segoe UI' },
-                    padding: 6,
-                    callback: function(v) {
-                        if ([3000,5000,10000,20000,30000,50000,100000].includes(v)) {
-                            return '$' + v.toLocaleString();
-                        }
-                        return '';
-                    }
+                    color: tickColor, font: { size: 11, family: 'Segoe UI' }, padding: 6,
+                    callback: v => [200,500,1000,3000,5000,10000,20000,30000,50000,100000].includes(v) ? '$' + v.toLocaleString() : ''
                 },
                 border: { color: borderColor },
                 afterFit(axis) { axis.width = 75; }
@@ -694,106 +1253,116 @@ const chart1 = new Chart(ctx1, {
     }
 });
 
-// ============ CHART 2: Z-Score Plot (red line) ============
-const ctx2 = document.getElementById('exportDataChart').getContext('2d');
+// ==========================================
+//  CHART 2: RSI (green)
+// ==========================================
+const ctx2 = document.getElementById('rsiChart').getContext('2d');
 
-// Plugin: green dashed line at -2.8
-const dashedLinePlugin = {
-    id: 'dashedLinePlugin',
-    afterDraw(chart) {
-        const { ctx, chartArea, scales } = chart;
-        if (!chartArea) return;
-        const yScale = scales.y;
-        const yPixel = yScale.getPixelForValue(-2.8);
-        if (yPixel < chartArea.top || yPixel > chartArea.bottom) return;
-        
-        ctx.save();
-        ctx.beginPath();
-        ctx.setLineDash([6, 4]);
-        ctx.strokeStyle = 'rgba(0, 200, 80, 0.8)';
-        ctx.lineWidth = 1.2;
-        ctx.moveTo(chartArea.left, yPixel);
-        ctx.lineTo(chartArea.right, yPixel);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
-    }
-};
-
-// Green bg plugin for Z-Score chart
-const greenBgPluginZ = {
-    id: 'greenBgPluginZ',
-    beforeDraw(chart) {
-        const { ctx, chartArea, scales } = chart;
-        if (!chartArea) return;
-        const xScale = scales.x;
-        const labels = chart.data.labels;
-        
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(chartArea.left, chartArea.top, chartArea.width, chartArea.height);
-        ctx.clip();
-        
-        for (let i = 0; i < labels.length - 1; i++) {
-            const z = zscoreData[i] ? zscoreData[i].zscore : null;
-            if (z !== null && z < -2.8) {
-                const x1 = xScale.getPixelForValue(labels[i]);
-                const x2 = xScale.getPixelForValue(labels[i + 1]);
-                ctx.fillStyle = 'rgba(0, 180, 70, 0.35)';
-                ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.height);
-            }
-        }
-        ctx.restore();
-    }
-};
-
-// Green dots for Z-Score (where z < -2.8)
-const zscoreGreenDots = zscoreData.map(d => (d.zscore !== null && d.zscore < -2.8) ? d.zscore : null);
-const zscoreGreenRadius = zscoreData.map(d => (d.zscore !== null && d.zscore < -2.8) ? 5 : 0);
+const gradientRsi = ctx2.createLinearGradient(0, 0, 0, 225);
+gradientRsi.addColorStop(0, 'rgba(0, 200, 80, 0.35)');
+gradientRsi.addColorStop(0.5, 'rgba(0, 200, 80, 0.10)');
+gradientRsi.addColorStop(1, 'rgba(0, 200, 80, 0)');
 
 const chart2 = new Chart(ctx2, {
     type: 'line',
     data: {
-        labels: zscoreData.map(d => d.time),
-        datasets: [
-        {
-            label: 'Z-Score Fill',
-            data: zscoreData.map(d => d.zscore),
-            borderColor: 'transparent',
-            backgroundColor: 'transparent',
-            borderWidth: 0,
-            fill: { target: { value: -2.8 }, above: 'transparent', below: 'rgba(0, 200, 80, 0.5)' },
-            pointRadius: 0,
-            tension: 0.1
-        },
-        {
-            label: 'Z-Score Plot',
-            data: zscoreData.map(d => d.zscore),
-            borderColor: '#ff4444',
-            backgroundColor: 'transparent',
+        labels: rsiData.map(d => d.time),
+        datasets: [{
+            label: 'RSI',
+            data: rsiData.map(d => d.rsi),
+            borderColor: '#00c850',
+            backgroundColor: gradientRsi,
             borderWidth: 1.4,
-            fill: false,
+            fill: true,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            pointHoverBackgroundColor: '#00c850',
+            tension: 0.1
+        }]
+    },
+    plugins: [{
+        id: 'rsiLegend',
+        afterDraw(chart) {
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+            const x = chartArea.left + 12;
+            const y = chartArea.top + 16;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#00c850';
+            ctx.fill();
+            ctx.font = '12px Segoe UI, system-ui, sans-serif';
+            ctx.fillStyle = '#ccc';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('RSI', x + 10, y);
+            ctx.restore();
+        }
+    }],
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 6, right: 40, left: 4, bottom: 4 } },
+        interaction: { intersect: false, mode: 'index' },
+        plugins: { title: { display: false }, legend: { display: false },
+            tooltip: {
+                backgroundColor: tooltipBg, borderColor: tooltipBorder, borderWidth: 1,
+                titleColor: tooltipText, bodyColor: tooltipText,
+                titleFont: { size: 11, weight: '600' }, bodyFont: { size: 11 },
+                padding: 8, displayColors: false,
+                callbacks: { label: c => c.parsed.y.toFixed(2) }
+            }
+        },
+        scales: {
+            x: {
+                type: 'time', min: timeMin, max: timeMax,
+                time: { unit: 'year', displayFormats: { year: 'yyyy-MM' } },
+                grid: { display: false }, ticks: { display: false },
+                border: { color: borderColor }
+            },
+            y: {
+                position: 'right', min: 20, max: 100,
+                grid: { display: false },
+                ticks: {
+                    color: tickColor, font: { size: 11, family: 'Segoe UI' }, padding: 6,
+                    callback: v => v.toFixed(0)
+                },
+                border: { color: borderColor },
+                afterFit(axis) { axis.width = 75; }
+            }
+        }
+    }
+});
+
+// ==========================================
+//  CHART 3: LWBC (red)
+// ==========================================
+const ctx3 = document.getElementById('lwbcChart').getContext('2d');
+
+const gradientLwbc = ctx3.createLinearGradient(0, 0, 0, 225);
+gradientLwbc.addColorStop(0, 'rgba(255, 68, 68, 0.35)');
+gradientLwbc.addColorStop(0.5, 'rgba(255, 68, 68, 0.10)');
+gradientLwbc.addColorStop(1, 'rgba(255, 68, 68, 0)');
+
+const chart3 = new Chart(ctx3, {
+    type: 'line',
+    data: {
+        labels: lwbcOnlyData.map(d => d.time),
+        datasets: [{
+            label: 'LWBC',
+            data: lwbcOnlyData.map(d => d.lwbc),
+            borderColor: '#ff4444',
+            backgroundColor: gradientLwbc,
+            borderWidth: 1.4,
+            fill: true,
             pointRadius: 0,
             pointHoverRadius: 3,
             pointHoverBackgroundColor: '#ff4444',
             tension: 0.1
-        },
-        {
-            label: 'Buy Zone Z',
-            data: zscoreGreenDots,
-            borderColor: 'transparent',
-            backgroundColor: 'rgba(0, 200, 80, 0.9)',
-            borderWidth: 0,
-            fill: false,
-            pointRadius: zscoreGreenRadius,
-            pointBackgroundColor: 'rgba(0, 200, 80, 0.9)',
-            pointBorderColor: 'rgba(0, 200, 80, 0.9)',
-            tension: 0.1,
-            showLine: false
         }]
     },
-    plugins: [dashedLinePlugin, greenBgPluginZ, {
-        id: 'zscoreLegend',
+    plugins: [{
+        id: 'lwbcLegend',
         afterDraw(chart) {
             const { ctx, chartArea } = chart;
             if (!chartArea) return;
@@ -807,7 +1376,7 @@ const chart2 = new Chart(ctx2, {
             ctx.font = '12px Segoe UI, system-ui, sans-serif';
             ctx.fillStyle = '#ccc';
             ctx.textBaseline = 'middle';
-            ctx.fillText('Indicador', x + 10, y);
+            ctx.fillText('LWBC', x + 10, y);
             ctx.restore();
         }
     }],
@@ -816,36 +1385,23 @@ const chart2 = new Chart(ctx2, {
         maintainAspectRatio: false,
         layout: { padding: { top: 6, right: 40, left: 4, bottom: 4 } },
         interaction: { intersect: false, mode: 'index' },
-        plugins: {
-            title: { display: false },
-            legend: { display: false },
+        plugins: { title: { display: false }, legend: { display: false },
             tooltip: {
-                backgroundColor: tooltipBg,
-                borderColor: tooltipBorder,
-                borderWidth: 1,
-                titleColor: tooltipText,
-                bodyColor: tooltipText,
-                titleFont: { size: 11, weight: '600' },
-                bodyFont: { size: 11 },
-                padding: 8,
-                displayColors: false,
-                callbacks: {
-                    label: function(c) { return c.parsed.y.toFixed(3); }
-                }
+                backgroundColor: tooltipBg, borderColor: tooltipBorder, borderWidth: 1,
+                titleColor: tooltipText, bodyColor: tooltipText,
+                titleFont: { size: 11, weight: '600' }, bodyFont: { size: 11 },
+                padding: 8, displayColors: false,
+                callbacks: { label: c => c.parsed.y.toFixed(1) }
             }
         },
         scales: {
             x: {
-                type: 'time',
-                min: timeMin,
-                max: timeMax,
+                type: 'time', min: timeMin, max: timeMax,
                 time: { unit: 'year', displayFormats: { year: 'yyyy-MM' } },
                 grid: { display: false },
                 ticks: {
-                    color: tickColor,
-                    font: { size: 11, family: 'Segoe UI' },
-                    padding: 6,
-                    maxRotation: 0
+                    color: tickColor, font: { size: 11, family: 'Segoe UI' },
+                    padding: 6, maxRotation: 0
                 },
                 border: { color: borderColor }
             },
@@ -853,10 +1409,8 @@ const chart2 = new Chart(ctx2, {
                 position: 'right',
                 grid: { display: false },
                 ticks: {
-                    color: tickColor,
-                    font: { size: 11, family: 'Segoe UI' },
-                    padding: 6,
-                    callback: function(v) { return v.toFixed(1); }
+                    color: tickColor, font: { size: 11, family: 'Segoe UI' }, padding: 6,
+                    callback: v => v.toFixed(0)
                 },
                 border: { color: borderColor },
                 afterFit(axis) { axis.width = 75; }
@@ -865,7 +1419,9 @@ const chart2 = new Chart(ctx2, {
     }
 });
 
-// ============ EXPORT IMAGE ============
+// ==========================================
+//  EXPORT IMAGE (includes drawings, excludes sidebar)
+// ==========================================
 function exportImage() {
     const wrapper = document.getElementById('chartWrapper');
     const w = wrapper.offsetWidth;
@@ -892,21 +1448,32 @@ function exportImage() {
         yOffset += panelH;
     });
 
-    // Separator line
-    const firstPanelH = panels[0].offsetHeight;
+    // Separator lines
     ectx.strokeStyle = '#333';
     ectx.lineWidth = 1;
-    ectx.beginPath();
-    ectx.moveTo(0, firstPanelH);
-    ectx.lineTo(w, firstPanelH);
-    ectx.stroke();
+    let sepY = 0;
+    panels.forEach((panel, i) => {
+        sepY += panel.offsetHeight;
+        if (i < panels.length - 1) {
+            ectx.beginPath();
+            ectx.moveTo(0, sepY);
+            ectx.lineTo(w, sepY);
+            ectx.stroke();
+        }
+    });
+
+    // Draw the drawing overlay on top
+    ectx.drawImage(overlay, 0, 0, w, h);
 
     // Trigger download
     const link = document.createElement('a');
-    link.download = 'BTC_ZScore_Chart.png';
+    link.download = 'BTC_RSI_LWBC_Chart.png';
     link.href = exportCanvas.toDataURL('image/png');
     link.click();
 }
+
+// Init overlay size after charts render
+setTimeout(resizeOverlay, 500);
 </script>
 
 </body>
