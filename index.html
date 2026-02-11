@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoCharts — Análise Técnica Bitcoin</title>
+    <style>
+        /* ========== RESET & BASE ========== */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            background: #000;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ========== ANIMATED BACKGROUND ========== */
+        .bg-glow {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .bg-glow .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.15;
+            animation: float 20s ease-in-out infinite;
+        }
+        .bg-glow .orb:nth-child(1) {
+            width: 600px; height: 600px;
+            background: #f57c00;
+            top: -200px; left: -100px;
+            animation-delay: 0s;
+        }
+        .bg-glow .orb:nth-child(2) {
+            width: 500px; height: 500px;
+            background: #00c850;
+            bottom: -200px; right: -100px;
+            animation-delay: -7s;
+        }
+        .bg-glow .orb:nth-child(3) {
+            width: 400px; height: 400px;
+            background: #7c9dff;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: -14s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -40px) scale(1.1); }
+            50% { transform: translate(-20px, 20px) scale(0.95); }
+            75% { transform: translate(15px, 30px) scale(1.05); }
+        }
+
+        /* ========== HEADER / NAV ========== */
+        header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: #fff;
+            font-weight: 700;
+            font-size: 20px;
+            letter-spacing: -0.5px;
+        }
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #f57c00, #ff9800);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 800;
+            color: #000;
+        }
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+        .nav-links a {
+            color: #999;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: #fff; }
+        .nav-cta {
+            padding: 8px 20px;
+            background: rgba(245, 124, 0, 0.15);
+            border: 1px solid rgba(245, 124, 0, 0.3);
+            border-radius: 8px;
+            color: #f57c00;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .nav-cta:hover {
+            background: rgba(245, 124, 0, 0.25);
+            border-color: rgba(245, 124, 0, 0.5);
+        }
+
+        /* ========== HERO ========== */
+        .hero {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 120px 24px 80px;
+        }
+        .hero-inner {
+            max-width: 800px;
+            text-align: center;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: rgba(245, 124, 0, 0.1);
+            border: 1px solid rgba(245, 124, 0, 0.2);
+            border-radius: 100px;
+            color: #f57c00;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 24px;
+        }
+        .hero-badge .pulse {
+            width: 8px; height: 8px;
+            background: #00c850;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .hero h1 {
+            font-size: clamp(36px, 6vw, 64px);
+            font-weight: 800;
+            letter-spacing: -2px;
+            line-height: 1.1;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+        .hero h1 span {
+            background: linear-gradient(135deg, #f57c00, #ffb74d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero p {
+            font-size: clamp(16px, 2vw, 19px);
+            color: #888;
+            max-width: 560px;
+            margin: 0 auto 40px;
+            line-height: 1.7;
+        }
+        .hero-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn-primary {
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #f57c00, #e65100);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.25s;
+            box-shadow: 0 4px 24px rgba(245, 124, 0, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(245, 124, 0, 0.4);
+        }
+        .btn-secondary {
+            padding: 14px 32px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ccc;
+            font-size: 15px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.25s;
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        /* ========== STATS BAR ========== */
+        .stats-bar {
+            position: relative;
+            z-index: 1;
+            max-width: 1000px;
+            margin: -40px auto 0;
+            padding: 0 24px;
+        }
+        .stats-inner {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        .stat-item {
+            padding: 28px 24px;
+            background: rgba(10, 10, 10, 0.8);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -1px;
+        }
+        .stat-value.orange { color: #f57c00; }
+        .stat-value.green { color: #00c850; }
+        .stat-label {
+            font-size: 13px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* ========== CHARTS SECTION ========== */
+        .section {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 100px 24px;
+        }
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        .section-header .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(0, 200, 80, 0.1);
+            border: 1px solid rgba(0, 200, 80, 0.2);
+            border-radius: 100px;
+            color: #00c850;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+        .section-header h2 {
+            font-size: clamp(28px, 4vw, 42px);
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -1px;
+            margin-bottom: 12px;
+        }
+        .section-header p {
+            font-size: 16px;
+            color: #666;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* ========== CHART CARDS ========== */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 24px;
+        }
+        .chart-card {
+            background: rgba(13, 13, 13, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+        }
+        .chart-card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+        .chart-card.available {
+            cursor: pointer;
+        }
+        .chart-card.coming-soon {
+            opacity: 0.5;
+            cursor: default;
+        }
+        .chart-card.coming-soon:hover {
+            transform: none;
+            box-shadow: none;
+            border-color: rgba(255, 255, 255, 0.06);
+        }
+        .card-preview {
+            height: 200px;
+            background: #0a0a0a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .card-preview .preview-chart {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        /* Mini BTC RSI preview with SVG */
+        .card-preview svg {
+            width: 100%;
+            height: 100%;
+        }
+        .card-preview .coming-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 6px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .card-body {
+            padding: 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .card-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+        }
+        .card-dot.orange { background: #f57c00; }
+        .card-dot.green { background: #00c850; }
+        .card-dot.blue { background: #7c9dff; }
+        .card-dot.purple { background: #b388ff; }
+        .card-dot.red { background: #ff4444; }
+        .card-dot.cyan { background: #00bcd4; }
+        .card-type {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #555;
+        }
+        .card-body h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #eee;
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+        .card-body p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+            flex: 1;
+        }
+        .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .card-tag {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .card-tag.live {
+            background: rgba(0, 200, 80, 0.1);
+            color: #00c850;
+        }
+        .card-tag.soon {
+            background: rgba(255, 255, 255, 0.05);
+            color: #444;
+        }
+        .card-arrow {
+            color: #444;
+            font-size: 18px;
+            transition: transform 0.2s;
+        }
+        .chart-card.available:hover .card-arrow {
+            transform: translateX(4px);
+            color: #f57c00;
+        }
+
+        /* ========== FEATURES ========== */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .feature-item {
+            padding: 32px 28px;
+            background: rgba(13, 13, 13, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            transition: border-color 0.3s;
+        }
+        .feature-item:hover {
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+        .feature-icon {
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        .feature-icon.orange { background: rgba(245, 124, 0, 0.1); color: #f57c00; }
+        .feature-icon.green { background: rgba(0, 200, 80, 0.1); color: #00c850; }
+        .feature-icon.blue { background: rgba(124, 157, 255, 0.1); color: #7c9dff; }
+        .feature-item h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ddd;
+            margin-bottom: 8px;
+        }
+        .feature-item p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* ========== FOOTER ========== */
+        footer {
+            position: relative;
+            z-index: 1;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            padding: 40px 24px;
+        }
+        .footer-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .footer-inner p {
+            font-size: 13px;
+            color: #444;
+        }
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+        }
+        .footer-links a {
+            font-size: 13px;
+            color: #555;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .footer-links a:hover { color: #999; }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 1024px) {
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .stats-inner { grid-template-columns: repeat(2, 1fr); }
+            .features-grid { grid-template-columns: 1fr; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .hero { padding: 100px 20px 60px; }
+            .footer-inner { flex-direction: column; gap: 16px; text-align: center; }
+        }
+        @media (max-width: 480px) {
+            .stats-inner { grid-template-columns: 1fr; }
+            .hero h1 { letter-spacing: -1px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Animated background -->
+<div class="bg-glow">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+</div>
+
+<!-- ========== HEADER ========== -->
+<header>
+    <nav class="nav-container">
+        <a href="#" class="logo">
+            <div class="logo-icon">₿</div>
+            CryptoCharts
+        </a>
+        <ul class="nav-links">
+            <li><a href="#charts">Charts</a></li>
+            <li><a href="#features">Features</a></li>
+        </ul>
+        <a href="btc_chart.html" class="nav-cta">Abrir Charts →</a>
+    </nav>
+</header>
+
+<!-- ========== HERO ========== -->
+<section class="hero">
+    <div class="hero-inner">
+        <div class="hero-badge">
+            <div class="pulse"></div>
+            Dados atualizados até 2025
+        </div>
+        <h1>Análise Técnica<br><span>Bitcoin</span> em tempo real</h1>
+        <p>Charts interativos com indicadores técnicos, ferramentas de desenho e análise on-chain para identificar as melhores oportunidades.</p>
+        <div class="hero-actions">
+            <a href="btc_chart.html" class="btn-primary">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 6-10"/></svg>
+                Ver Charts
+            </a>
+            <a href="#charts" class="btn-secondary">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                Explorar
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- ========== STATS ========== -->
+<div class="stats-bar">
+    <div class="stats-inner">
+        <div class="stat-item">
+            <div class="stat-value orange">14+</div>
+            <div class="stat-label">Anos de Dados</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">RSI</div>
+            <div class="stat-label">Indicador Técnico</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value green">LWBC</div>
+            <div class="stat-label">On-Chain Metric</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">100%</div>
+            <div class="stat-label">Interativo</div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== CHARTS ========== -->
+<section class="section" id="charts">
+    <div class="section-header">
+        <div class="tag">Charts</div>
+        <h2>Indicadores Disponíveis</h2>
+        <p>Explore os charts com dados históricos desde 2014 e ferramentas de análise profissional.</p>
+    </div>
+
+    <div class="charts-grid">
+        <!-- BTC RSI Chart — Available -->
+        <a href="btc_chart.html" class="chart-card available">
+            <div class="card-preview">
+                <svg viewBox="0 0 400 200" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#f57c00" stop-opacity="0.3"/>
+                            <stop offset="100%" stop-color="#f57c00" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M0,180 Q50,170 80,150 T160,100 T240,60 T320,30 T400,10 L400,200 L0,200 Z" fill="url(#g1)"/>
+                    <path d="M0,180 Q50,170 80,150 T160,100 T240,60 T320,30 T400,10" fill="none" stroke="#f57c00" stroke-width="2"/>
+                </svg>
+            </div>
+            <div class="card-body">
+                <div class="card-indicator">
+                    <div class="card-dot orange"></div>
+                    <span class="card-type">Indicador Técnico</span>
+                </div>
+                <h3>BTC × RSI Weekly</h3>
+                <p>Preço do Bitcoin com RSI semanal. Identifica zonas de sobrevenda (RSI &lt; 37) e retornos históricos.</p>
+            </div>
+            <div class="card-footer">
+                <span class="card-tag live">Disponível</span>
+                <span class="card-arrow">→</span>
+            </div>
+        </a>
+
+        <!-- LWBC Chart — Coming soon -->
+        <div class="chart-card coming-soon">
+            <div class="card-preview">
+                <svg viewBox="0 0 400 200" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#7c9dff" stop-opacity="0.15"/>
+                            <stop offset="100%" stop-color="#7c9dff" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M0,120 Q60,130 100,90 T200,110 T300,80 T400,95 L400,200 L0,200 Z" fill="url(#g2)"/>
+                    <path d="M0,120 Q60,130 100,90 T200,110 T300,80 T400,95" fill="none" stroke="#7c9dff" stroke-width="2" opacity="0.5"/>
+                </svg>
+                <span class="coming-label">Em Breve</span>
+            </div>
+            <div class="card-body">
+                <div class="card-indicator">
+                    <div class="card-dot blue"></div>
+                    <span class="card-type">On-Chain</span>
+                </div>
+                <h3>BTC × LWBC</h3>
+                <p>Log-Weighted Bitcoin Cost — indicador on-chain para identificar faixas de valorização de longo prazo.</p>
+            </div>
+            <div class="card-footer">
+                <span class="card-tag soon">Em Breve</span>
+                <span class="card-arrow">→</span>
+            </div>
+        </div>
+
+        <!-- MVRV Chart — Coming soon -->
+        <div class="chart-card coming-soon">
+            <div class="card-preview">
+                <svg viewBox="0 0 400 200" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#00c850" stop-opacity="0.15"/>
+                            <stop offset="100%" stop-color="#00c850" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M0,140 Q50,110 100,130 T200,70 T300,120 T400,60 L400,200 L0,200 Z" fill="url(#g3)"/>
+                    <path d="M0,140 Q50,110 100,130 T200,70 T300,120 T400,60" fill="none" stroke="#00c850" stroke-width="2" opacity="0.5"/>
+                </svg>
+                <span class="coming-label">Em Breve</span>
+            </div>
+            <div class="card-body">
+                <div class="card-indicator">
+                    <div class="card-dot green"></div>
+                    <span class="card-type">On-Chain</span>
+                </div>
+                <h3>BTC × MVRV Z-Score</h3>
+                <p>Market Value to Realized Value — identifica topos e fundos de mercado com precisão histórica.</p>
+            </div>
+            <div class="card-footer">
+                <span class="card-tag soon">Em Breve</span>
+                <span class="card-arrow">→</span>
+            </div>
+        </div>
+
+        <!-- Stock-to-Flow — Coming soon -->
+        <div class="chart-card coming-soon">
+            <div class="card-preview">
+                <svg viewBox="0 0 400 200" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="g4" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#b388ff" stop-opacity="0.15"/>
+                            <stop offset="100%" stop-color="#b388ff" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M0,160 Q80,140 120,100 T240,50 T360,20 T400,15 L400,200 L0,200 Z" fill="url(#g4)"/>
+                    <path d="M0,160 Q80,140 120,100 T240,50 T360,20 T400,15" fill="none" stroke="#b388ff" stroke-width="2" opacity="0.5"/>
+                </svg>
+                <span class="coming-label">Em Breve</span>
+            </div>
+            <div class="card-body">
+                <div class="card-indicator">
+                    <div class="card-dot purple"></div>
+                    <span class="card-type">Modelo</span>
+                </div>
+                <h3>Stock-to-Flow</h3>
+                <p>Modelo de escassez do Bitcoin baseado na relação entre estoque e produção após cada halving.</p>
+            </div>
+            <div class="card-footer">
+                <span class="card-tag soon">Em Breve</span>
+                <span class="card-arrow">→</span>
+            </div>
+        </div>
+
+        <!-- NVT Ratio — Coming soon -->
+        <div class="chart-card coming-soon">
+            <div class="card-preview">
+                <svg viewBox="0 0 400 200" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="g5" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#ff4444" stop-opacity="0.15"/>
+                            <stop offset="100%" stop-color="#ff4444" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M0,100 Q40,120 80,80 T160,130 T240,60 T320,110 T400,70 L400,200 L0,200 Z" fill="url(#g5)"/>
+                    <path d="M0,100 Q40,120 80,80 T160,130 T240,60 T320,110 T400,70" fill="none" stroke="#ff4444" stroke-width="2" opacity="0.5"/>
+                </svg>
+                <span class="coming-label">Em Breve</span>
+            </div>
+            <div class="card-body">
+                <div class="card-indicator">
+                    <div class="card-dot red"></div>
+                    <span class="card-type">On-Chain</span>
+                </div>
+                <h3>NVT Ratio</h3>
+                <p>Network Value to Transactions — avalia se o preço do Bitcoin está sobrevalorizado em relação à atividade on-chain.</p>
+            </div>
+            <div class="card-footer">
+                <span class="card-tag soon">Em Breve</span>
+                <span class="card-arrow">→</span>
+            </div>
+        </div>
+
+        <!-- RHODL Ratio — Coming soon -->
+        <div class="chart-card coming-soon">
+            <div class="card-preview">
+                <svg viewBox="0 0 400 200" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="g6" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#00bcd4" stop-opacity="0.15"/>
+                            <stop offset="100%" stop-color="#00bcd4" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M0,130 Q70,90 140,110 T280,50 T400,80 L400,200 L0,200 Z" fill="url(#g6)"/>
+                    <path d="M0,130 Q70,90 140,110 T280,50 T400,80" fill="none" stroke="#00bcd4" stroke-width="2" opacity="0.5"/>
+                </svg>
+                <span class="coming-label">Em Breve</span>
+            </div>
+            <div class="card-body">
+                <div class="card-indicator">
+                    <div class="card-dot cyan"></div>
+                    <span class="card-type">On-Chain</span>
+                </div>
+                <h3>RHODL Ratio</h3>
+                <p>Realized HODL Ratio — compara holders de curto e longo prazo para sinalizar ciclos de mercado.</p>
+            </div>
+            <div class="card-footer">
+                <span class="card-tag soon">Em Breve</span>
+                <span class="card-arrow">→</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== FEATURES ========== -->
+<section class="section" id="features">
+    <div class="section-header">
+        <div class="tag">Features</div>
+        <h2>Ferramentas Incluídas</h2>
+        <p>Tudo que você precisa para análise técnica profissional.</p>
+    </div>
+
+    <div class="features-grid">
+        <div class="feature-item">
+            <div class="feature-icon orange">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </div>
+            <h3>Ferramentas de Desenho</h3>
+            <p>Linhas, retângulos, setas, texto livre e desenho à mão — tudo direto no chart.</p>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon green">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12,2 2,7 12,12 22,7"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>
+            </div>
+            <h3>Camadas</h3>
+            <p>Sistema de camadas com visibilidade individual para organizar seus desenhos.</p>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon blue">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            </div>
+            <h3>Tabela de Eventos RSI</h3>
+            <p>Retornos históricos de 1 semana a 1 ano após cada sinal de sobrevenda.</p>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon orange">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <h3>Export PNG</h3>
+            <p>Exporte o chart completo com tabela e anotações em alta resolução.</p>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon green">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 6-10"/></svg>
+            </div>
+            <h3>Escala Logarítmica</h3>
+            <p>Visualização em escala log para análise de todo o histórico de preço do Bitcoin.</p>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon blue">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </div>
+            <h3>Responsivo</h3>
+            <p>Interface adaptada para desktop, MacBook e tablets com layout fluido.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ========== FOOTER ========== -->
+<footer>
+    <div class="footer-inner">
+        <p>© 2025 CryptoCharts. Dados para fins educacionais.</p>
+        <ul class="footer-links">
+            <li><a href="#charts">Charts</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="btc_chart.html">BTC RSI</a></li>
+        </ul>
+    </div>
+</footer>
+
+</body>
+</html>

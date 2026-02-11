@@ -202,6 +202,61 @@
             overflow-y: auto;
             overflow-x: hidden;
             min-height: 0;
+            min-width: 0;
+            width: 100%;
+        }
+
+        /* Responsive adjustments for MacBook Air and smaller screens */
+        @media (max-width: 1440px) {
+            .main-content {
+                padding: 16px 12px;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                padding: 12px 8px;
+            }
+            .rsi-events-panel .panel-header {
+                font-size: 12px;
+            }
+            .rsi-events-panel table {
+                font-size: 10px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                min-width: 100%;
+                height: 48px;
+                flex-direction: row;
+                border-right: none;
+                border-bottom: 1px solid #333;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 4px 8px;
+            }
+            .sidebar .divider {
+                width: 1px;
+                height: 30px;
+                margin: 0 4px;
+            }
+            .main-content {
+                padding: 8px;
+            }
+            .wrapper {
+                min-height: 600px;
+            }
+            .chart-panel:first-child {
+                height: 400px !important;
+            }
+            .chart-panel:last-child {
+                height: 200px !important;
+            }
         }
         .export-btn {
             background: #1a1a1a;
@@ -216,8 +271,10 @@
         }
         .export-btn:hover { background: #2a2a2a; color: #fff; border-color: #666; }
         .wrapper {
-            width: 1350px;
-            height: 850px;
+            width: 100%;
+            max-width: 1350px;
+            height: auto;
+            min-height: 850px;
             display: flex;
             flex-direction: column;
             position: relative;
@@ -235,7 +292,8 @@
 
         /* RSI Events Table */
         .rsi-events-panel {
-            width: 1350px;
+            width: 100%;
+            max-width: 1350px;
             margin-top: 16px;
             margin-bottom: 20px;
             background: #0d0d0d;
