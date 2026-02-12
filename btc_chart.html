@@ -606,7 +606,6 @@ function resizeOverlay() {
     redrawAll();
 }
 window.addEventListener('resize', resizeOverlay);
-setTimeout(resizeOverlay, 100);
 
 function setTool(t) {
     drawState.tool = t;
@@ -861,6 +860,7 @@ function drawPreview(p) {
 
 // Get the combined clip region (chart areas only, excluding axis labels)
 function getClipRegion() {
+    if (typeof chart1 === 'undefined' || typeof chart2 === 'undefined') return null;
     const ca1 = chart1.chartArea;
     const ca2 = chart2.chartArea;
     if (!ca1 || !ca2) return null;
