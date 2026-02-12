@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -270,6 +270,21 @@
             transition: all 0.15s;
         }
         .export-btn:hover { background: #2a2a2a; color: #fff; border-color: #666; }
+        .refresh-btn {
+            background: #1a1a1a;
+            color: #ccc;
+            border: 1px solid #444;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.15s;
+            margin-left: 8px;
+        }
+        .refresh-btn:hover { background: #2a2a2a; color: #fff; border-color: #666; }
+        .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .refresh-btn .spin { display: inline-block; animation: spin 1s linear infinite; }
         .wrapper {
             width: 100%;
             max-width: 1350px;
@@ -402,63 +417,63 @@
 <!-- ===== SIDEBAR ===== -->
 <div class="sidebar" id="sidebar">
     <!-- Cursor / Select -->
-    <button class="tool-btn active" data-tool="select" data-tip="Selecionar" onclick="setTool('select')">
+    <button class="tool-btn active" data-tool="select" data-tip="Select" onclick="setTool('select')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 4l7 18 3-7 7-3z"/></svg>
     </button>
 
     <div class="divider"></div>
 
     <!-- Freehand -->
-    <button class="tool-btn" data-tool="pencil" data-tip="Desenho livre" onclick="setTool('pencil')">
+    <button class="tool-btn" data-tool="pencil" data-tip="Freehand" onclick="setTool('pencil')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
     </button>
 
     <!-- Line -->
-    <button class="tool-btn" data-tool="line" data-tip="Linha reta" onclick="setTool('line')">
+    <button class="tool-btn" data-tool="line" data-tip="Line" onclick="setTool('line')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
     </button>
 
     <!-- Horizontal line -->
-    <button class="tool-btn" data-tool="hline" data-tip="Linha horizontal" onclick="setTool('hline')">
+    <button class="tool-btn" data-tool="hline" data-tip="Horizontal line" onclick="setTool('hline')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/></svg>
     </button>
 
     <!-- Vertical line -->
-    <button class="tool-btn" data-tool="vline" data-tip="Linha vertical" onclick="setTool('vline')">
+    <button class="tool-btn" data-tool="vline" data-tip="Vertical line" onclick="setTool('vline')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/></svg>
     </button>
 
     <!-- Rectangle -->
-    <button class="tool-btn" data-tool="rect" data-tip="RetÃ¢ngulo" onclick="setTool('rect')">
+    <button class="tool-btn" data-tool="rect" data-tip="Rectangle" onclick="setTool('rect')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
     </button>
 
     <!-- Circle -->
-    <button class="tool-btn" data-tool="circle" data-tip="CÃ­rculo" onclick="setTool('circle')">
+    <button class="tool-btn" data-tool="circle" data-tip="Circle" onclick="setTool('circle')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
     </button>
 
     <!-- Arrow -->
-    <button class="tool-btn" data-tool="arrow" data-tip="Seta" onclick="setTool('arrow')">
+    <button class="tool-btn" data-tool="arrow" data-tip="Arrow" onclick="setTool('arrow')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="10,5 19,5 19,14"/></svg>
     </button>
 
     <!-- Text -->
-    <button class="tool-btn" data-tool="text" data-tip="Texto" onclick="setTool('text')">
+    <button class="tool-btn" data-tool="text" data-tip="Text" onclick="setTool('text')">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="4,7 4,4 20,4 20,7"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
     </button>
 
     <div class="divider"></div>
 
     <!-- Line style -->
-    <button class="tool-btn" data-tip="Tracejado" onclick="toggleDash()" id="dashBtn">
+    <button class="tool-btn" data-tip="Dashed" onclick="toggleDash()" id="dashBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-dasharray="4 3"><line x1="3" y1="12" x2="21" y2="12"/></svg>
     </button>
 
     <div class="divider"></div>
 
     <!-- Color -->
-    <span class="size-label">Cor</span>
+    <span class="size-label">Color</span>
     <div style="position:relative;">
         <div class="color-pick" id="colorPick" onclick="document.getElementById('colorInput').click()"></div>
         <input type="color" id="colorInput" value="#ff4444" onchange="setColor(this.value)">
@@ -475,7 +490,7 @@
     <div class="divider"></div>
 
     <!-- Stroke width -->
-    <span class="size-label">Esp.</span>
+    <span class="size-label">Wt.</span>
     <select id="strokeWidth" onchange="drawState.strokeWidth = +this.value">
         <option value="1">1</option>
         <option value="2" selected>2</option>
@@ -497,19 +512,19 @@
     <div class="divider"></div>
 
     <!-- Undo -->
-    <button class="tool-btn" data-tip="Desfazer (Ctrl+Z)" onclick="undoDraw()">
+    <button class="tool-btn" data-tip="Undo (Ctrl+Z)" onclick="undoDraw()">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 105.64-8.36L1 10"/></svg>
     </button>
 
     <!-- Clear all -->
-    <button class="tool-btn" data-tip="Limpar tudo" onclick="clearDraw()">
+    <button class="tool-btn" data-tip="Clear all" onclick="clearDraw()">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V3h6v3"/></svg>
     </button>
 
     <div class="divider"></div>
 
     <!-- Layers -->
-    <button class="tool-btn" data-tip="Camadas" onclick="toggleLayersPanel()" id="layersBtn">
+    <button class="tool-btn" data-tip="Layers" onclick="toggleLayersPanel()" id="layersBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="12,2 2,7 12,12 22,7"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>
     </button>
 </div>
@@ -517,7 +532,7 @@
 <!-- ===== LAYERS PANEL ===== -->
 <div class="layers-panel" id="layersPanel">
     <div class="layers-header">
-        <span>Camadas</span>
+        <span>Layers</span>
         <button class="layers-close" onclick="toggleLayersPanel()">&times;</button>
     </div>
     <div class="layers-list" id="layersList"></div>
@@ -525,8 +540,11 @@
 
 <!-- ===== MAIN CONTENT ===== -->
 <div class="main-content">
-    <div id="loadingOverlay"><div class="spinner"></div><span>Carregando dados do BTC...</span></div>
-    <button class="export-btn" onclick="exportImage()">Export Image</button>
+    <div id="loadingOverlay"><div class="spinner"></div><span>Loading BTC data...</span></div>
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:0;">
+        <button class="export-btn" onclick="exportImage()">Export Image</button>
+        <button class="refresh-btn" id="refreshBtn" onclick="window._forceRefresh()">&#x21bb; Refresh Data</button>
+    </div>
     <div class="wrapper" id="chartWrapper">
         <div class="chart-panel" style="height: 550px;">
             <canvas class="chart-canvas" id="btcChart"></canvas>
@@ -543,21 +561,21 @@
     <div class="rsi-events-panel" id="rsiEventsPanel">
         <div class="panel-header">
             <span class="dot"></span>
-            <span>Eventos RSI &lt; 37 - Retornos BTC</span>
+            <span>RSI Events &lt; 37 &mdash; BTC Returns</span>
         </div>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Data</th>
+                        <th>Date</th>
                         <th>RSI</th>
-                        <th>PreÃ§o BTC</th>
-                        <th>1 Semana</th>
-                        <th>1 MÃªs</th>
-                        <th>3 Meses</th>
-                        <th>6 Meses</th>
-                        <th>1 Ano</th>
+                        <th>BTC Price</th>
+                        <th>1 Week</th>
+                        <th>1 Month</th>
+                        <th>3 Months</th>
+                        <th>6 Months</th>
+                        <th>1 Year</th>
                     </tr>
                 </thead>
                 <tbody id="rsiEventsBody"></tbody>
@@ -652,7 +670,7 @@ overlay.addEventListener('mousedown', e => {
     }
     if (drawState.tool === 'text') {
         drawState.drawing = false;
-        const txt = prompt('Texto:');
+        const txt = prompt('Text:');
         if (txt) {
             drawState.items.push({
                 type: 'text', text: txt,
@@ -897,7 +915,7 @@ function undoDraw() {
 }
 
 function clearDraw() {
-    if (drawState.items.length && !confirm('Limpar todos os desenhos?')) return;
+    if (drawState.items.length && !confirm('Clear all drawings?')) return;
     drawState.items = [];
     redrawAll();
     refreshLayers();
@@ -913,14 +931,14 @@ function toggleLayersPanel() {
 
 function getLayerLabel(item) {
     const labels = {
-        pencil: 'Desenho livre',
-        line: 'Linha reta',
-        hline: 'Linha horizontal',
-        vline: 'Linha vertical',
-        arrow: 'Seta',
-        rect: 'RetÃ¢ngulo',
-        circle: 'CÃ­rculo',
-        text: 'Texto'
+        pencil: 'Freehand',
+        line: 'Line',
+        hline: 'Horizontal line',
+        vline: 'Vertical line',
+        arrow: 'Arrow',
+        rect: 'Rectangle',
+        circle: 'Circle',
+        text: 'Text'
     };
     let label = labels[item.type] || item.type;
     if (item.type === 'text') label += ': ' + (item.text.length > 12 ? item.text.slice(0, 12) + '...' : item.text);
@@ -930,7 +948,7 @@ function getLayerLabel(item) {
 function refreshLayers() {
     const list = document.getElementById('layersList');
     if (!drawState.items.length) {
-        list.innerHTML = '<div class="empty-msg">Nenhuma camada</div>';
+        list.innerHTML = '<div class="empty-msg">No layers</div>';
         return;
     }
     list.innerHTML = '';
@@ -1912,11 +1930,11 @@ function btcPriceAt(targetDate) {
 // Compute returns for each event
 const MS_DAY = 86400000;
 const periods = [
-    { label: '1sem', days: 7 },
-    { label: '1mes', days: 30 },
-    { label: '3mes', days: 91 },
-    { label: '6mes', days: 182 },
-    { label: '1ano', days: 365 }
+    { label: '1wk', days: 7 },
+    { label: '1mo', days: 30 },
+    { label: '3mo', days: 91 },
+    { label: '6mo', days: 182 },
+    { label: '1yr', days: 365 }
 ];
 
 const eventsWithReturns = rsiEvents.map(ev => {
@@ -1937,7 +1955,7 @@ periods.forEach(p => { avgReturns[p.label] = []; });
 
 eventsWithReturns.forEach((ev, idx) => {
     const tr = document.createElement('tr');
-    const dateStr = ev.time.toLocaleDateString('pt-BR', { year: 'numeric', month: 'short' });
+    const dateStr = ev.time.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
     let cells = `<td>${idx + 1}</td><td>${dateStr}</td><td>${ev.rsi.toFixed(2)}</td><td>$${ev.price0.toLocaleString()}</td>`;
     periods.forEach(p => {
         const r = ev.returns[p.label];
@@ -1957,7 +1975,7 @@ eventsWithReturns.forEach((ev, idx) => {
 // Average row
 const avgTr = document.createElement('tr');
 avgTr.className = 'avg-row';
-let avgCells = `<td></td><td>MÃ©dia</td><td></td><td></td>`;
+let avgCells = `<td></td><td>Average</td><td></td><td></td>`;
 periods.forEach(p => {
     const vals = avgReturns[p.label];
     if (vals.length) {
@@ -1975,7 +1993,7 @@ tbody.appendChild(avgTr);
 // Median row
 const medTr = document.createElement('tr');
 medTr.className = 'avg-row';
-let medCells = `<td></td><td>Mediana</td><td></td><td></td>`;
+let medCells = `<td></td><td>Median</td><td></td><td></td>`;
 periods.forEach(p => {
     const vals = avgReturns[p.label].slice().sort((a, b) => a - b);
     if (vals.length) {
@@ -2179,7 +2197,7 @@ window.exportImage = function exportImage() {
     ectx.font = '600 12px Segoe UI, system-ui, sans-serif';
     ectx.fillStyle = '#ccc';
     ectx.textBaseline = 'middle';
-    ectx.fillText('Eventos RSI < ' + RSI_THRESHOLD + ' - Retornos BTC', xStart + 18, tY + tPanelHeaderH / 2);
+    ectx.fillText('RSI Events < ' + RSI_THRESHOLD + ' \u2014 BTC Returns', xStart + 18, tY + tPanelHeaderH / 2);
 
     // Divider under panel header
     ectx.strokeStyle = '#333';
@@ -2193,7 +2211,7 @@ window.exportImage = function exportImage() {
     // Table header
     ectx.fillStyle = '#1a1a1a';
     ectx.fillRect(xStart, curY, tableW, tHeaderH);
-    const headers = ['#', 'Data', 'RSI', 'PreÃ§o BTC', '1 Semana', '1 MÃªs', '3 Meses', '6 Meses', '1 Ano'];
+    const headers = ['#', 'Date', 'RSI', 'BTC Price', '1 Week', '1 Month', '3 Months', '6 Months', '1 Year'];
     ectx.font = '600 11px Segoe UI, system-ui, sans-serif';
     ectx.fillStyle = '#999';
     ectx.textBaseline = 'middle';
@@ -2271,7 +2289,7 @@ window.exportImage = function exportImage() {
         document.body.removeChild(link);
     } catch (err) {
         console.error('Export failed:', err);
-        alert('Erro ao exportar imagem. Verifique o console.');
+        alert('Export failed. Check the console for details.');
     }
 }
 
@@ -2283,7 +2301,9 @@ setTimeout(resizeOverlay, 500);
 // ==========================================
 async function refreshChartData() {
     if (_apiDataSource !== 'api') return; // only refresh if API was used initially
+    const btn = document.getElementById('refreshBtn');
     try {
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin">&#x21bb;</span> Refreshing...'; }
         console.log('[Axius] Refreshing BTC data...');
         const daily = await fetchBtcFromAPI(true); // force bypass cache
         const newBtcData = processApiData(daily);
@@ -2304,8 +2324,13 @@ async function refreshChartData() {
         console.log(`[Axius] Charts refreshed: ${newFiltered.length} candles, last close=$${newFiltered[newFiltered.length - 1].close.toLocaleString()}`);
     } catch (err) {
         console.warn('[Axius] Refresh failed:', err);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#x21bb; Refresh Data'; }
     }
 }
+
+// Expose for the button
+window._forceRefresh = refreshChartData;
 
 // Auto-refresh every 6 hours
 setInterval(refreshChartData, REFRESH_INTERVAL_MS);
