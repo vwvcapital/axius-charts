@@ -1524,18 +1524,21 @@ const lwbcCsvData = `time,close,LWBC
 //  API FETCH + HELPERS
 // ==========================================
 const BTC_CACHE_KEY = 'axius_btc_api_cache';
-const CACHE_TTL_MS  = 24 * 60 * 60 * 1000; // 1 day
+const CACHE_TTL_MS  = 6 * 60 * 60 * 1000; // 6 hours (refreshes ~4x/day)
+const REFRESH_INTERVAL_MS = CACHE_TTL_MS;
 const TWO_WEEKS_S   = 14 * 24 * 60 * 60;
 
-async function fetchBtcFromAPI() {
-    // Check localStorage cache first
-    try {
-        const cached = JSON.parse(localStorage.getItem(BTC_CACHE_KEY));
-        if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-            console.log('[Axius] Using cached BTC data');
-            return cached.data;
-        }
-    } catch(_) {}
+async function fetchBtcFromAPI(forceRefresh) {
+    // Check localStorage cache first (skip if forceRefresh)
+    if (!forceRefresh) {
+        try {
+            const cached = JSON.parse(localStorage.getItem(BTC_CACHE_KEY));
+            if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+                console.log('[Axius] Using cached BTC data');
+                return cached.data;
+            }
+        } catch(_) {}
+    }
 
     // CoinGecko: daily data from 2011 to now
     const from = Math.floor(new Date('2011-08-01').getTime() / 1000);
@@ -1614,6 +1617,17 @@ function parseFallbackCsv(csv) {
     });
 }
 
+// Process daily API data into 2-week candles with RSI
+function processApiData(daily) {
+    const biweekly = resampleTo2Weeks(daily);
+    const withRsi  = computeRSI(biweekly);
+    return withRsi.map(d => ({
+        time: new Date(d.time * 1000),
+        close: d.close,
+        rsi: d.rsi
+    }));
+}
+
 // ==========================================
 //  INIT (async)
 // ==========================================
@@ -1621,16 +1635,12 @@ function parseFallbackCsv(csv) {
 try {
 
 let btcData;
+let _apiDataSource = 'fallback'; // track data source for refresh
 try {
     const daily = await fetchBtcFromAPI();
-    const biweekly = resampleTo2Weeks(daily);
-    const withRsi  = computeRSI(biweekly);
-    btcData = withRsi.map(d => ({
-        time: new Date(d.time * 1000),
-        close: d.close,
-        rsi: d.rsi
-    }));
-    console.log(`[Axius] API data: ${btcData.length} 2-week candles`);
+    btcData = processApiData(daily);
+    _apiDataSource = 'api';
+    console.log(`[Axius] API data: ${btcData.length} 2-week candles (live candle included)`);
 } catch (apiErr) {
     console.warn('[Axius] API failed, using fallback CSV:', apiErr);
     btcData = parseFallbackCsv(FALLBACK_BTC_CSV);
@@ -2267,6 +2277,39 @@ window.exportImage = function exportImage() {
 
 // Init overlay size after charts render
 setTimeout(resizeOverlay, 500);
+
+// ==========================================
+//  AUTO-REFRESH: update live candle ~4x/day
+// ==========================================
+async function refreshChartData() {
+    if (_apiDataSource !== 'api') return; // only refresh if API was used initially
+    try {
+        console.log('[Axius] Refreshing BTC data...');
+        const daily = await fetchBtcFromAPI(true); // force bypass cache
+        const newBtcData = processApiData(daily);
+        const april2014 = new Date(2014, 3, 1);
+        const newFiltered = newBtcData.filter(d => d.time >= april2014);
+        const newRsiData = newFiltered.filter(d => d.rsi !== null);
+
+        // Update chart 1 (BTC price)
+        chart1.data.labels = newFiltered.map(d => d.time);
+        chart1.data.datasets[0].data = newFiltered.map(d => d.close);
+        chart1.update('none');
+
+        // Update chart 2 (RSI)
+        chart2.data.labels = newRsiData.map(d => d.time);
+        chart2.data.datasets[0].data = newRsiData.map(d => d.rsi);
+        chart2.update('none');
+
+        console.log(`[Axius] Charts refreshed: ${newFiltered.length} candles, last close=$${newFiltered[newFiltered.length - 1].close.toLocaleString()}`);
+    } catch (err) {
+        console.warn('[Axius] Refresh failed:', err);
+    }
+}
+
+// Auto-refresh every 6 hours
+setInterval(refreshChartData, REFRESH_INTERVAL_MS);
+console.log(`[Axius] Auto-refresh enabled: every ${REFRESH_INTERVAL_MS / 3600000}h`);
 
 } catch(e) {
     console.error('[Axius] Init error:', e);
