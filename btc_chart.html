@@ -270,21 +270,6 @@
             transition: all 0.15s;
         }
         .export-btn:hover { background: #2a2a2a; color: #fff; border-color: #666; }
-        .refresh-btn {
-            background: #1a1a1a;
-            color: #ccc;
-            border: 1px solid #444;
-            padding: 8px 16px;
-            font-size: 13px;
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.15s;
-            margin-left: 8px;
-        }
-        .refresh-btn:hover { background: #2a2a2a; color: #fff; border-color: #666; }
-        .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .refresh-btn .spin { display: inline-block; animation: spin 1s linear infinite; }
         .wrapper {
             width: 100%;
             max-width: 1350px;
@@ -541,10 +526,7 @@
 <!-- ===== MAIN CONTENT ===== -->
 <div class="main-content">
     <div id="loadingOverlay"><div class="spinner"></div><span>Loading BTC data...</span></div>
-    <div style="display:flex;align-items:center;gap:0;margin-bottom:0;">
-        <button class="export-btn" onclick="exportImage()">Export Image</button>
-        <button class="refresh-btn" id="refreshBtn" onclick="window._forceRefresh()">&#x21bb; Refresh Data</button>
-    </div>
+    <button class="export-btn" onclick="exportImage()">Export Image</button>
     <div class="wrapper" id="chartWrapper">
         <div class="chart-panel" style="height: 550px;">
             <canvas class="chart-canvas" id="btcChart"></canvas>
@@ -2300,41 +2282,54 @@ setTimeout(resizeOverlay, 500);
 //  AUTO-REFRESH: update live candle ~4x/day
 // ==========================================
 async function refreshChartData() {
-    if (_apiDataSource !== 'api') return; // only refresh if API was used initially
-    const btn = document.getElementById('refreshBtn');
+    if (_apiDataSource !== 'api') return;
     try {
-        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin">&#x21bb;</span> Refreshing...'; }
-        console.log('[Axius] Refreshing BTC data...');
-        const daily = await fetchBtcFromAPI(true); // force bypass cache
+        console.log('[Axius] Refreshing full BTC data...');
+        const daily = await fetchBtcFromAPI(true);
         const newBtcData = processApiData(daily);
         const april2014 = new Date(2014, 3, 1);
         const newFiltered = newBtcData.filter(d => d.time >= april2014);
         const newRsiData = newFiltered.filter(d => d.rsi !== null);
 
-        // Update chart 1 (BTC price)
         chart1.data.labels = newFiltered.map(d => d.time);
         chart1.data.datasets[0].data = newFiltered.map(d => d.close);
         chart1.update('none');
 
-        // Update chart 2 (RSI)
         chart2.data.labels = newRsiData.map(d => d.time);
         chart2.data.datasets[0].data = newRsiData.map(d => d.rsi);
         chart2.update('none');
 
         console.log(`[Axius] Charts refreshed: ${newFiltered.length} candles, last close=$${newFiltered[newFiltered.length - 1].close.toLocaleString()}`);
     } catch (err) {
-        console.warn('[Axius] Refresh failed:', err);
-    } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = '&#x21bb; Refresh Data'; }
+        console.warn('[Axius] Full refresh failed:', err);
     }
 }
 
-// Expose for the button
-window._forceRefresh = refreshChartData;
+// Lightweight: update only the live candle's close with current price
+async function updateLivePrice() {
+    try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        if (!res.ok) return;
+        const json = await res.json();
+        const price = json.bitcoin?.usd;
+        if (!price) return;
 
-// Auto-refresh every 6 hours
+        const data1 = chart1.data.datasets[0].data;
+        if (data1.length) {
+            data1[data1.length - 1] = price;
+            chart1.update('none');
+        }
+        console.log(`[Axius] Live price updated: $${price.toLocaleString()}`);
+    } catch (_) {}
+}
+
+// Full data refresh every 6 hours
 setInterval(refreshChartData, REFRESH_INTERVAL_MS);
-console.log(`[Axius] Auto-refresh enabled: every ${REFRESH_INTERVAL_MS / 3600000}h`);
+
+// Live price update every 5 minutes
+setInterval(updateLivePrice, 5 * 60 * 1000);
+updateLivePrice();
+console.log('[Axius] Live price updates enabled (every 5 min)');
 
 } catch(e) {
     console.error('[Axius] Init error:', e);
