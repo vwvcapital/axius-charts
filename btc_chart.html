@@ -376,6 +376,25 @@
         #drawingOverlay.tool-cursor { cursor: crosshair; }
         #drawingOverlay.tool-text { cursor: text; }
         #drawingOverlay.tool-move { cursor: move; }
+
+        /* Loading overlay */
+        #loadingOverlay {
+            position: fixed; inset: 0;
+            background: rgba(10,10,10,0.92);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 10000; color: #eee;
+            font-family: 'Inter', sans-serif;
+        }
+        #loadingOverlay .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid #333;
+            border-top-color: #f57c00;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin-bottom: 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -506,6 +525,7 @@
 
 <!-- ===== MAIN CONTENT ===== -->
 <div class="main-content">
+    <div id="loadingOverlay"><div class="spinner"></div><span>Carregando dados do BTC...</span></div>
     <button class="export-btn" onclick="exportImage()">Export Image</button>
     <div class="wrapper" id="chartWrapper">
         <div class="chart-panel" style="height: 550px;">
@@ -939,9 +959,9 @@ document.addEventListener('keydown', e => {
 });
 
 // ==========================================
-//  CSV DATA
+//  CSV DATA (FALLBACK)
 // ==========================================
-const btcCsvData = `time,close,RSI
+const FALLBACK_BTC_CSV = `time,close,RSI
 1313366400,10,
 1314576000,7.4,
 1315785600,6.05,
@@ -1501,17 +1521,120 @@ const lwbcCsvData = `time,close,LWBC
 1769904000,69131,3235.6923028119218`;
 
 // ==========================================
-//  PARSE DATA
+//  API FETCH + HELPERS
 // ==========================================
-const btcLines = btcCsvData.trim().split('\n');
-const btcData = btcLines.slice(1).map(line => {
-    const parts = line.split(',');
-    return {
-        time: new Date(parseInt(parts[0]) * 1000),
-        close: parseFloat(parts[1]),
-        rsi: parts[2] ? parseFloat(parts[2]) : null
-    };
-});
+const BTC_CACHE_KEY = 'axius_btc_api_cache';
+const CACHE_TTL_MS  = 24 * 60 * 60 * 1000; // 1 day
+const TWO_WEEKS_S   = 14 * 24 * 60 * 60;
+
+async function fetchBtcFromAPI() {
+    // Check localStorage cache first
+    try {
+        const cached = JSON.parse(localStorage.getItem(BTC_CACHE_KEY));
+        if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+            console.log('[Axius] Using cached BTC data');
+            return cached.data;
+        }
+    } catch(_) {}
+
+    // CoinGecko: daily data from 2011 to now
+    const from = Math.floor(new Date('2011-08-01').getTime() / 1000);
+    const to   = Math.floor(Date.now() / 1000);
+    const url  = `https://api.coingecko.com/api/v3/coins/bitcoin/market_chart/range?vs_currency=usd&from=${from}&to=${to}`;
+    console.log('[Axius] Fetching BTC data from CoinGecko...');
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error(`CoinGecko HTTP ${res.status}`);
+    const json = await res.json();
+    // json.prices = [[timestamp_ms, price], ...]
+    const daily = json.prices.map(([ms, price]) => ({
+        time: Math.floor(ms / 1000),
+        close: price
+    }));
+
+    // Cache it
+    try {
+        localStorage.setItem(BTC_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: daily }));
+    } catch(_) {}
+    return daily;
+}
+
+function resampleTo2Weeks(dailyPrices) {
+    if (!dailyPrices.length) return [];
+    // Anchor on the first data point, then bucket every 2 weeks
+    const anchor = dailyPrices[0].time;
+    const buckets = [];
+    let bucketStart = anchor;
+    let lastInBucket = dailyPrices[0];
+
+    for (const pt of dailyPrices) {
+        while (pt.time >= bucketStart + TWO_WEEKS_S) {
+            buckets.push({ time: bucketStart, close: lastInBucket.close });
+            bucketStart += TWO_WEEKS_S;
+        }
+        lastInBucket = pt;
+    }
+    buckets.push({ time: bucketStart, close: lastInBucket.close });
+    return buckets;
+}
+
+function computeRSI(data, period = 14) {
+    // Wilder smoothing RSI on close prices
+    const result = data.map(d => ({ ...d, rsi: null }));
+    if (data.length < period + 1) return result;
+
+    let gainSum = 0, lossSum = 0;
+    for (let i = 1; i <= period; i++) {
+        const diff = data[i].close - data[i - 1].close;
+        if (diff > 0) gainSum += diff; else lossSum += Math.abs(diff);
+    }
+    let avgGain = gainSum / period;
+    let avgLoss = lossSum / period;
+    result[period].rsi = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+
+    for (let i = period + 1; i < data.length; i++) {
+        const diff = data[i].close - data[i - 1].close;
+        const gain = diff > 0 ? diff : 0;
+        const loss = diff < 0 ? Math.abs(diff) : 0;
+        avgGain = (avgGain * (period - 1) + gain) / period;
+        avgLoss = (avgLoss * (period - 1) + loss) / period;
+        result[i].rsi = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+    }
+    return result;
+}
+
+function parseFallbackCsv(csv) {
+    const lines = csv.trim().split('\n');
+    return lines.slice(1).map(line => {
+        const parts = line.split(',');
+        return {
+            time: new Date(parseInt(parts[0]) * 1000),
+            close: parseFloat(parts[1]),
+            rsi: parts[2] ? parseFloat(parts[2]) : null
+        };
+    });
+}
+
+// ==========================================
+//  INIT (async)
+// ==========================================
+(async function init() {
+try {
+
+let btcData;
+try {
+    const daily = await fetchBtcFromAPI();
+    const biweekly = resampleTo2Weeks(daily);
+    const withRsi  = computeRSI(biweekly);
+    btcData = withRsi.map(d => ({
+        time: new Date(d.time * 1000),
+        close: d.close,
+        rsi: d.rsi
+    }));
+    console.log(`[Axius] API data: ${btcData.length} 2-week candles`);
+} catch (apiErr) {
+    console.warn('[Axius] API failed, using fallback CSV:', apiErr);
+    btcData = parseFallbackCsv(FALLBACK_BTC_CSV);
+}
 
 const lwbcLines = lwbcCsvData.trim().split('\n');
 const lwbcData = lwbcLines.slice(1).map(line => {
@@ -1959,7 +2082,7 @@ chart2.update();
 // ==========================================
 //  EXPORT IMAGE (includes drawings, excludes sidebar)
 // ==========================================
-function exportImage() {
+window.exportImage = function exportImage() {
     const wrapper = document.getElementById('chartWrapper');
     const w = wrapper.offsetWidth;
     const chartH = wrapper.offsetHeight;
@@ -2144,6 +2267,14 @@ function exportImage() {
 
 // Init overlay size after charts render
 setTimeout(resizeOverlay, 500);
+
+} catch(e) {
+    console.error('[Axius] Init error:', e);
+} finally {
+    const ov = document.getElementById('loadingOverlay');
+    if (ov) ov.remove();
+}
+})();
 </script>
 
 </body>
