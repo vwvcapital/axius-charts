@@ -1545,13 +1545,13 @@ async function fetchBtcFromAPI(forceRefresh) {
 
     let daily;
 
-    // Source 1: CoinGecko
+    // Source 1: Yahoo Finance (reliable, no key needed)
     try {
-        daily = await fetchFromCoinGecko();
-    } catch (cgErr) {
-        console.log('[Axius] CoinGecko unavailable, trying Yahoo Finance...');
-        // Source 2: Yahoo Finance
         daily = await fetchFromYahoo();
+    } catch (yhErr) {
+        console.log('[Axius] Yahoo unavailable, trying CoinGecko...');
+        // Source 2: CoinGecko
+        daily = await fetchFromCoinGecko();
     }
 
     // Cache it
