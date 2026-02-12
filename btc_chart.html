@@ -1564,10 +1564,10 @@ async function fetchBtcFromAPI(forceRefresh) {
 async function fetchFromCoinGecko() {
     const from = Math.floor(new Date('2011-08-01').getTime() / 1000);
     const to   = Math.floor(Date.now() / 1000);
-    const url  = `https://api.coingecko.com/api/v3/coins/bitcoin/market_chart/range?vs_currency=usd&from=${from}&to=${to}`;
-    const headers = CG_DEMO_KEY ? { 'x-cg-demo-api-key': CG_DEMO_KEY } : {};
+    let url = `https://api.coingecko.com/api/v3/coins/bitcoin/market_chart/range?vs_currency=usd&from=${from}&to=${to}`;
+    if (CG_DEMO_KEY) url += `&x_cg_demo_api_key=${CG_DEMO_KEY}`;
     console.log('[Axius] Fetching BTC data from CoinGecko...');
-    const res = await fetch(url, { headers });
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`CoinGecko HTTP ${res.status}`);
     const json = await res.json();
     return json.prices.map(([ms, price]) => ({
@@ -1579,10 +1579,11 @@ async function fetchFromCoinGecko() {
 async function fetchFromYahoo() {
     const from = Math.floor(new Date('2011-08-01').getTime() / 1000);
     const to   = Math.floor(Date.now() / 1000);
-    const url  = `https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?interval=1d&period1=${from}&period2=${to}`;
-    console.log('[Axius] Fetching BTC data from Yahoo Finance...');
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?interval=1d&period1=${from}&period2=${to}`;
+    const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
+    console.log('[Axius] Fetching BTC data from Yahoo Finance (via proxy)...');
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`Yahoo proxy HTTP ${res.status}`);
     const json = await res.json();
     const result = json.chart.result[0];
     const timestamps = result.timestamp;
@@ -2340,9 +2341,9 @@ async function refreshChartData() {
 // Lightweight: update only the live candle's close with current price
 async function updateLivePrice() {
     try {
-        const url = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd';
-        const headers = CG_DEMO_KEY ? { 'x-cg-demo-api-key': CG_DEMO_KEY } : {};
-        const res = await fetch(url, { headers });
+        let url = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd';
+        if (CG_DEMO_KEY) url += `&x_cg_demo_api_key=${CG_DEMO_KEY}`;
+        const res = await fetch(url);
         if (!res.ok) return;
         const json = await res.json();
         const price = json.bitcoin?.usd;
