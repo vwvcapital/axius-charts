@@ -1528,6 +1528,9 @@ const CACHE_TTL_MS  = 6 * 60 * 60 * 1000; // 6 hours (refreshes ~4x/day)
 const REFRESH_INTERVAL_MS = CACHE_TTL_MS;
 const TWO_WEEKS_S   = 14 * 24 * 60 * 60;
 
+// Paste your free CoinGecko Demo API key here (https://www.coingecko.com/en/api)
+const CG_DEMO_KEY = '';
+
 async function fetchBtcFromAPI(forceRefresh) {
     // Check localStorage cache first (skip if forceRefresh)
     if (!forceRefresh) {
@@ -1544,8 +1547,9 @@ async function fetchBtcFromAPI(forceRefresh) {
     const from = Math.floor(new Date('2011-08-01').getTime() / 1000);
     const to   = Math.floor(Date.now() / 1000);
     const url  = `https://api.coingecko.com/api/v3/coins/bitcoin/market_chart/range?vs_currency=usd&from=${from}&to=${to}`;
+    const headers = CG_DEMO_KEY ? { 'x-cg-demo-api-key': CG_DEMO_KEY } : {};
     console.log('[Axius] Fetching BTC data from CoinGecko...');
-    const res  = await fetch(url);
+    const res  = await fetch(url, { headers });
     if (!res.ok) throw new Error(`CoinGecko HTTP ${res.status}`);
     const json = await res.json();
     // json.prices = [[timestamp_ms, price], ...]
@@ -1642,7 +1646,7 @@ try {
     _apiDataSource = 'api';
     console.log(`[Axius] API data: ${btcData.length} 2-week candles (live candle included)`);
 } catch (apiErr) {
-    console.warn('[Axius] API failed, using fallback CSV:', apiErr);
+    console.log('[Axius] API unavailable, using fallback CSV data.');
     btcData = parseFallbackCsv(FALLBACK_BTC_CSV);
 }
 
